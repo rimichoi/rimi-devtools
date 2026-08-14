@@ -56,3 +56,11 @@ textarea, input, select, button {
 .sidebar-link { display: block; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
 .sidebar-link:hover { background: var(--surface); }
 .sidebar-link.is-active { background: var(--accent); color: #fff; }
+
+.io-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.io-output-head { display: flex; justify-content: space-between; align-items: center; }
+.io-pane label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+#toast-root { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.toast { padding: 10px 14px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 14px; }
+.toast-error { background: var(--error); color: #fff; }
