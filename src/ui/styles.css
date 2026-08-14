@@ -1,0 +1,52 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --error: #dc2626;
+  --warn: #b45309;
+  --surface: #f9fafb;
+}
+
+:root[data-theme='dark'] {
+  --bg: #111317;
+  --fg: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #2a2f3a;
+  --accent: #60a5fa;
+  --error: #f87171;
+  --warn: #fbbf24;
+  --surface: #191c22;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+
+#app { display: flex; min-height: 100vh; }
+#sidebar { width: 220px; border-right: 1px solid var(--border); padding: 12px; flex-shrink: 0; }
+#tool-root { flex: 1; padding: 20px; min-width: 0; }
+
+textarea, input, select, button {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.io-pane { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.io-pane textarea { width: 100%; min-height: 60vh; resize: vertical; }
+.io-error { color: var(--error); white-space: pre-wrap; margin-top: 8px; }
+.io-warn { color: var(--warn); white-space: pre-wrap; margin-top: 8px; }
+
+@media (max-width: 860px) {
+  .io-pane { grid-template-columns: 1fr; }
+}

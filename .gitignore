@@ -1,0 +1,26 @@
+node_modules
+.superpowers
+dist
+dist-ssr
+dev-dist
+.vite
+coverage
+test-results
+playwright-report
+blob-report
+.playwright
+
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 설계 문서와 구현 계획은 저장소에 올리지 않는다. 커밋하려면 이 줄을 지운다.
+docs/design.md
+docs/plan.md
