@@ -8,6 +8,7 @@
   --warn: #b45309;
   --surface: #f9fafb;
   --on-accent: #ffffff;
+  --on-error: #ffffff;
   color-scheme: light;
 }
 
@@ -30,6 +31,7 @@
     --warn: #fbbf24;
     --surface: #191c22;
     --on-accent: #111317;
+    --on-error: #111317;
     color-scheme: dark;
   }
 }
@@ -44,6 +46,7 @@
   --warn: #fbbf24;
   --surface: #191c22;
   --on-accent: #111317;
+  --on-error: #111317;
   color-scheme: dark;
 }
 
@@ -90,7 +93,13 @@ textarea, input, select, button {
 
 #toast-root { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .toast { padding: 10px 14px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 14px; display: flex; align-items: center; gap: 8px; }
-.toast-error { background: var(--error); color: #fff; }
+/*
+ * 전경색을 #fff 로 하드코딩하면 다크 테마의 --error(#f87171) 위에서 대비가
+ * 2.77:1 밖에 안 된다(WCAG AA 본문 요구치 4.5:1). 하필 이 클래스가 사용자가
+ * 가장 읽어야 하는 영구 안내(도구 로드/마운트 실패)를 나른다. --on-error 는
+ * 라이트 #ffffff / 다크 #111317 이고 각각 4.83:1, 6.72:1 이다.
+ */
+.toast-error { background: var(--error); color: var(--on-error); }
 .toast-update { background: var(--accent); color: var(--on-accent); }
 .toast-update button { background: var(--on-accent); color: var(--accent); border: none; padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .toast-dismiss { background: transparent; border: none; color: inherit; padding: 0 4px; font-size: 16px; line-height: 1; cursor: pointer; }
