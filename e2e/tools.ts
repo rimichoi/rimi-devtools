@@ -21,6 +21,7 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
   epoch: { kind: 'text', values: ['1700000000'] },
   'time-calc': { kind: 'text', values: ['01:30:00', '00:45:30'] },
   'json-diff': { kind: 'text', values: ['{"a":1}', '{"a":2}'] },
+  exif: { kind: 'none' },
 };
 
 export function sampleFor(id: string): SampleInput {

@@ -64,6 +64,13 @@ export const tools: Tool[] = [
     category: 'format',
     load: () => import('./tools/json-diff/index').then((m) => m.default),
   },
+  {
+    id: 'exif',
+    name: 'EXIF 보기',
+    keywords: ['exif', '이미지', '사진', '메타데이터', 'gps', 'metadata'],
+    category: 'file',
+    load: () => import('./tools/exif/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
