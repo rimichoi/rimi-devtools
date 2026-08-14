@@ -49,6 +49,40 @@ test('IME 조합 중 확정되는 Enter 는 팔레트를 닫지 않는다', asyn
   await expect(page.locator('.palette-overlay')).toBeHidden();
 });
 
+test('IME 조합 중에는 Escape/화살표도 IME 에 맡기고 팔레트는 반응하지 않는다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+  const input = page.locator('.palette-box input');
+  await expect(input).toBeVisible();
+  await input.pressSequentially('포');
+
+  // 조합 중 Escape: 팔레트가 닫히면 안 되고(조합 취소는 IME 몫이다), 입력값도
+  // 그대로 남아 있어야 한다.
+  await page.evaluate(() => {
+    const el = document.querySelector('.palette-box input') as HTMLInputElement;
+    el.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, isComposing: true }),
+    );
+  });
+  await expect(page.locator('.palette-overlay')).toBeVisible();
+  await expect(input).toHaveValue('포');
+
+  // 조합 중 ArrowDown: 후보 이동은 IME 몫이라 팔레트의 커서가 움직이면 안 된다.
+  const cursorBefore = await page.locator('.palette-row.is-cursor .palette-row-name').textContent();
+  await page.evaluate(() => {
+    const el = document.querySelector('.palette-box input') as HTMLInputElement;
+    el.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true, isComposing: true }),
+    );
+  });
+  const cursorAfter = await page.locator('.palette-row.is-cursor .palette-row-name').textContent();
+  expect(cursorAfter).toBe(cursorBefore);
+
+  // 조합이 끝난 뒤의 진짜 Escape 는 정상적으로 팔레트를 닫는다.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.palette-overlay')).toBeHidden();
+});
+
 test('도구가 많아 선택 항목이 화면 밖으로 나가면 스크롤해서 보여준다', async ({ page }) => {
   test.skip(TOOL_IDS.length < 6, '스크롤이 필요할 만큼 도구 수가 많지 않습니다');
 
@@ -105,6 +139,51 @@ test('팔레트에 모달 다이얼로그 접근성 속성이 있다', async ({ 
   const firstOption = page.locator('.palette-row').first();
   await expect(firstOption).toHaveAttribute('role', 'option');
   await expect(firstOption).toHaveAttribute('aria-selected', 'true');
+});
+
+test('즐겨찾기는 Ctrl/Cmd+D 로 키보드만으로 토글할 수 있고, 이동을 일으키지 않는다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+  const input = page.locator('.palette-box input');
+  await expect(input).toBeVisible();
+
+  // 커서(첫 행)에 대해 단축키로 즐겨찾기를 켠다. 마우스로 별 버튼을 클릭하지 않는다.
+  await page.keyboard.press('ControlOrMeta+d');
+
+  // 포커스는 input 에 그대로 있다(Tab 트랩 유지, 별도 tab-stop 으로 옮겨가지 않음).
+  await expect(input).toBeFocused();
+  // 토글이 이동을 일으키지 않는다.
+  await expect(page.locator('.palette-overlay')).toBeVisible();
+  await expect(page).toHaveURL(/^[^#]*\/?$/);
+  // 즐겨찾기가 맨 위로 고정되므로, 방금 켠 도구는 계속 첫 행이고 별이 채워져 보인다.
+  await expect(page.locator('.palette-row').first().locator('.palette-star')).toHaveText('★');
+
+  // 같은 단축키로 다시 누르면 해제된다.
+  await page.keyboard.press('ControlOrMeta+d');
+  await expect(page.locator('.palette-row').first().locator('.palette-star')).toHaveText('☆');
+});
+
+test('행의 접근성 이름에는 즐겨찾기 문구가 섞이지 않고, 상태는 설명으로 따로 전달된다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(page.locator('.palette-box input')).toBeVisible();
+
+  // 첫 도구를 즐겨찾기해서, 별이 있는 행과 없는 행을 모두 검사한다.
+  await page.keyboard.press('ControlOrMeta+d');
+
+  const client = await page.context().newCDPSession(page);
+  const { nodes } = await client.send('Accessibility.getFullAXTree');
+  const optionNodes = nodes.filter((n) => n.role?.value === 'option');
+
+  expect(optionNodes.length).toBeGreaterThan(0);
+  for (const node of optionNodes) {
+    const name = node.name?.value ?? '';
+    expect(name, `옵션 이름에 "즐겨찾기" 문구가 섞였습니다: "${name}"`).not.toContain('즐겨찾기');
+  }
+
+  // 방금 즐겨찾기한(맨 위로 고정된) 첫 행은 상태가 description 으로 전달된다.
+  const firstOption = optionNodes[0];
+  expect(firstOption?.description?.value).toBe('즐겨찾기에 있음');
 });
 
 test('즐겨찾기 별을 누르면 해당 행으로 이동하지 않고, 목록 맨 위로 고정된다', async ({ page }) => {

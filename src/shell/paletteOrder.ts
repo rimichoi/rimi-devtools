@@ -23,7 +23,11 @@ export function orderForPalette(
 
   if (query.trim() === '') {
     const byId = new Map(tools.map((t) => [t.id, t] as const));
-    const recentIds = recent.filter((id) => validIds.has(id) && !favoriteIds.has(id));
+    // rdt.recent 는 정상 사용(prefs.pushRecent)이라면 중복이 없지만, 손으로 편집되거나
+    // 손상된 저장값에는 같은 id 가 여러 번 들어있을 수 있다. new Set 으로 먼저 중복을
+    // 제거해(첫 등장 순서 유지) 같은 도구가 목록에 두 번 그려지고 DOM id 가 겹치는
+    // 것을 막는다.
+    const recentIds = [...new Set(recent)].filter((id) => validIds.has(id) && !favoriteIds.has(id));
     const recentSet = new Set(recentIds);
     const recentTools = recentIds
       .map((id) => byId.get(id))

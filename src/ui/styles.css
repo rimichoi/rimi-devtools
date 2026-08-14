@@ -123,5 +123,6 @@ textarea, input, select, button {
 .palette-row.is-cursor { background: var(--accent); color: var(--on-accent); }
 .palette-row-name { flex: 1; }
 .palette-star { background: none; border: none; padding: 0 2px; border-radius: 4px; font-size: 14px; line-height: 1; cursor: pointer; color: inherit; }
+.palette-hint { padding: 6px 14px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
 
 body.no-scroll { overflow: hidden; }

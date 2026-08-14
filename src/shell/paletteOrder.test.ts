@@ -59,4 +59,14 @@ describe('orderForPalette', () => {
     expect(result.map((t) => t.id)).toEqual(['base64', 'json-format', 'sql-format', 'epoch']);
     expect(result.some((t) => t.id === 'ghost-tool')).toBe(false);
   });
+
+  it('최근 사용 목록에 같은 id 가 중복으로 들어있어도 한 번만 나온다', () => {
+    // 정상 사용(prefs.pushRecent)이면 중복이 생기지 않지만, 손상되거나 손으로
+    // 편집된 저장값에는 중복이 남아 있을 수 있다. 도구가 4개인데 행이 5개가 되거나
+    // DOM id 가 겹치면 안 된다.
+    const result = orderForPalette(tools, '', [], ['base64', 'base64', 'epoch']);
+    expect(result.map((t) => t.id)).toEqual(['base64', 'epoch', 'json-format', 'sql-format']);
+    expect(result.filter((t) => t.id === 'base64')).toHaveLength(1);
+    expect(result).toHaveLength(tools.length);
+  });
 });

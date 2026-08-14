@@ -8,6 +8,10 @@ function optionId(tool: Tool): string {
   return `palette-option-${tool.id}`;
 }
 
+function statusId(tool: Tool): string {
+  return `palette-status-${tool.id}`;
+}
+
 export function createPalette(tools: Tool[]): { destroy(): void } {
   const overlay = document.createElement('div');
   overlay.className = 'palette-overlay';
@@ -38,7 +42,11 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
   // tabIndex=-1 로 그 자동 포커스 대상에서 빼고, 이동은 화살표 키로만 한다.
   list.tabIndex = -1;
 
-  box.append(input, list);
+  const hint = document.createElement('div');
+  hint.className = 'palette-hint';
+  hint.textContent = '↑↓ 이동 · Enter 선택 · Ctrl/Cmd+D 즐겨찾기 토글 · Esc 닫기';
+
+  box.append(input, list, hint);
   overlay.append(box);
   document.body.append(overlay);
 
@@ -69,6 +77,11 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
       row.className = isCursor ? 'palette-row is-cursor' : 'palette-row';
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', isCursor ? 'true' : 'false');
+      // 별 버튼의 aria-label 이 subtree 텍스트로 흡수돼 "즐겨찾기 추가 JSON 포맷" 처럼
+      // 옵션 이름을 오염시키지 않도록, 이름을 도구 이름으로 명시적으로 고정한다.
+      // explicit aria-label 이 있으면 브라우저는 name-from-content 계산을 하지 않는다.
+      row.setAttribute('aria-label', tool.name);
+      row.setAttribute('aria-keyshortcuts', 'Control+D');
       row.addEventListener('click', () => go(tool));
 
       const name = document.createElement('span');
@@ -80,14 +93,28 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
       star.className = 'palette-star';
       star.textContent = isFavorite ? '★' : '☆';
       star.setAttribute('aria-label', isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가');
+      // role="option" 은 ARIA 상 포커스 가능한 자손을 허용하지 않고, 실제로 Tab
+      // 트랩(아래 onKeydown)도 이 버튼에는 절대 닿지 않는다. 마우스로는 계속
+      // 클릭할 수 있지만, 키보드/스크린리더 경로는 별도의 tab-stop 을 만드는 대신
+      // Ctrl/Cmd+D 단축키(아래)로 제공하므로 이 버튼 자체는 접근성 트리에서 뺀다.
+      star.tabIndex = -1;
+      star.setAttribute('aria-hidden', 'true');
       star.addEventListener('click', (event) => {
         event.stopPropagation();
-        prefs.toggleFavorite(tool.id);
-        render();
-        input.focus();
+        toggleFavorite(tool);
       });
 
-      row.append(star, name);
+      const status = document.createElement('span');
+      status.id = statusId(tool);
+      status.className = 'visually-hidden';
+      status.textContent = '즐겨찾기에 있음';
+      if (isFavorite) {
+        row.setAttribute('aria-describedby', statusId(tool));
+      } else {
+        row.removeAttribute('aria-describedby');
+      }
+
+      row.append(star, name, status);
       list.append(row);
 
       if (isCursor) row.scrollIntoView({ block: 'nearest' });
@@ -99,6 +126,12 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
     } else {
       input.removeAttribute('aria-activedescendant');
     }
+  }
+
+  function toggleFavorite(tool: Tool): void {
+    prefs.toggleFavorite(tool.id);
+    render();
+    input.focus();
   }
 
   function go(tool: Tool): void {
@@ -144,6 +177,12 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
     }
     if (overlay.hidden) return;
 
+    // 한글 등 IME 조합 중에는 Escape(조합 취소)/화살표(후보 이동)/Enter(음절 확정)를
+    // 전부 IME 에 맡겨야 한다. 이 핸들러가 가로채면 조합 취소용 Escape 에 팔레트가
+    // 통째로 닫히며 입력하던 검색어가 날아가는 등 IME 동작과 충돌한다. keyCode 229 는
+    // 구형 브라우저 호환.
+    if (event.isComposing || event.keyCode === 229) return;
+
     if (event.key === 'Escape') {
       event.preventDefault();
       close();
@@ -156,9 +195,6 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
       cursor = Math.max(cursor - 1, 0);
       paint();
     } else if (event.key === 'Enter') {
-      // 한글 등 IME 조합 중 확정 Enter 는 keyCode 229(구형 브라우저 호환)로도 온다.
-      // 이 Enter 는 "음절 확정" 이지 "선택 확정" 이 아니므로 무시해야 한다.
-      if (event.isComposing || event.keyCode === 229) return;
       const tool = matches[cursor];
       if (tool) {
         event.preventDefault();
@@ -170,6 +206,13 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
       // 않도록 항상 input 에 포커스를 묶어 둔다.
       event.preventDefault();
       input.focus();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+      // 별 토글은 role="option" 안에 tab-stop 을 두지 않는 대신(N1), 커서가 있는
+      // 행에 대해 이 단축키로 키보드/스크린리더 사용자에게 즐겨찾기 조작을 제공한다.
+      // 화면에 힌트 텍스트(hint)로도 노출한다.
+      event.preventDefault();
+      const tool = matches[cursor];
+      if (tool) toggleFavorite(tool);
     }
   }
 
