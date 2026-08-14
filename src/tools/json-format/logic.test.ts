@@ -75,6 +75,16 @@ describe('findPrecisionLoss', () => {
     expect(findPrecisionLoss('{"v":1.5e-10}')).toEqual([]);
     expect(findPrecisionLoss('{"v":2.5e-3}')).toEqual([]);
   });
+
+  it('병적으로 큰 양의 지수(무한대로 파싱됨)에서도 멈추지 않고, 경고하지 않는다', () => {
+    expect(() => findPrecisionLoss('{"a":1e999999999}')).not.toThrow();
+    expect(findPrecisionLoss('{"a":1e999999999}')).toEqual([]);
+  });
+
+  it('가수가 0 이라 유한하지만 병적으로 큰 지수에서도 멈추지 않고, 경고하지 않는다', () => {
+    expect(() => findPrecisionLoss('{"a":0e999999999}')).not.toThrow();
+    expect(findPrecisionLoss('{"a":0e999999999}')).toEqual([]);
+  });
 });
 
 describe('formatJson', () => {

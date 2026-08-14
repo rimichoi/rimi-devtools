@@ -73,7 +73,18 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
       return;
     }
 
-    const result = options.transform(input.value);
+    // logic.ts 는 예외를 던지지 않는 게 규칙이지만, 이 함수는 프로젝트의 모든 도구가
+    // 거치는 단일 지점이다 — 규칙이 어겨졌을 때 이전 결과가 최신 입력의 결과인 것처럼
+    // 화면에 남는 최악의 실패 모드를 막기 위한 안전망으로 감싼다.
+    let result: ToolResult<TransformOutput>;
+    try {
+      result = options.transform(input.value);
+    } catch (err) {
+      output.value = '';
+      error.textContent = err instanceof Error ? err.message : String(err);
+      return;
+    }
+
     if (result.ok) {
       output.value = result.value.text;
       warn.textContent = result.value.warning ?? '';

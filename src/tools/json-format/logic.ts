@@ -46,8 +46,17 @@ export function stripStringLiterals(json: string): string {
 const NUMBER_RE = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
 
 /**
+ * 실제 payload 에 나오는 정수 ID/금액은 이 자릿수를 넘지 않는다. `1e999999999` 같은 병적인
+ * 지수가 들어와도 그만큼 긴 문자열을 만들지 않도록 재구성 시도 자체를 여기서 멈춘다
+ * (`RangeError: Invalid string length` 또는 수백 MB 짜리 BigInt 파싱으로 인한 행 방지).
+ */
+const MAX_INTEGER_DIGITS = 100;
+
+/**
  * 리터럴이 정수 값으로 귀결되는지 확인하고, 그렇다면 그 정확한 값을 BigInt 로 재구성한다.
  * 소수부가 지수로도 상쇄되지 않고 남으면(=진짜 소수) null 을 돌려준다 — 소수는 검사 대상이 아니다.
+ * 자릿수가 `MAX_INTEGER_DIGITS` 를 넘어서는 재구성 대상도 null 을 돌려준다 — 검사 대상이 아니라
+ * 재구성을 시도하지 않는다는 뜻이다.
  */
 function exactIntegerValue(literal: string): bigint | null {
   const m = /^(-)?(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(literal);
@@ -58,9 +67,13 @@ function exactIntegerValue(literal: string): bigint | null {
   const exp = m[4] ? Number(m[4]) : 0;
   const shift = exp - (m[3]?.length ?? 0);
 
-  if (shift >= 0) return BigInt(sign + mantissa + '0'.repeat(shift));
+  if (shift >= 0) {
+    if (mantissa.length + shift > MAX_INTEGER_DIGITS) return null;
+    return BigInt(sign + mantissa + '0'.repeat(shift));
+  }
 
   // 지수가 소수부보다 덜 밀어내는 경우: 남는 자리가 전부 0 이면 여전히 정수다.
+  // dropCount 가 mantissa 길이를 넘어서면(=지수가 매우 큰 음수라도) 문자열을 만들기 전에 걸러진다.
   const dropCount = -shift;
   if (dropCount > mantissa.length) return null;
   const kept = mantissa.slice(0, mantissa.length - dropCount);
@@ -76,15 +89,15 @@ export function findPrecisionLoss(json: string): string[] {
 
   for (const match of masked.matchAll(NUMBER_RE)) {
     const literal = match[0];
-    const exact = exactIntegerValue(literal);
-    if (exact === null) continue; // 소수는 검사 대상이 아니다.
-
     const asNumber = Number(literal);
 
-    if (!Number.isFinite(asNumber)) {
-      lost.add(literal);
-      continue;
-    }
+    // 무한대로 파싱되는 값은 JSON.stringify 결과에서 이미 null 로 드러난다 — 조용히
+    // 틀리는 게 아니라 눈에 띄게 깨지므로, 이 도구가 경고할 대상이 아니다.
+    if (!Number.isFinite(asNumber)) continue;
+
+    const exact = exactIntegerValue(literal);
+    if (exact === null) continue; // 소수이거나, 재구성하기엔 너무 긴 지수다.
+
     try {
       if (exact !== BigInt(asNumber)) lost.add(literal);
     } catch {
