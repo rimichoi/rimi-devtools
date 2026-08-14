@@ -22,6 +22,13 @@ export const tools: Tool[] = [
     category: 'calc',
     load: () => import('./tools/text-count/index').then((m) => m.default),
   },
+  {
+    id: 'percent',
+    name: '백분율 계산',
+    keywords: ['백분율', '퍼센트', 'percent', '비율', '증감률', '계산'],
+    category: 'calc',
+    load: () => import('./tools/percent/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
