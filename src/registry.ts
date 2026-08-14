@@ -9,6 +9,13 @@ export const tools: Tool[] = [
     load: () => import('./tools/json-format/index').then((m) => m.default),
   },
   {
+    id: 'sql-format',
+    name: 'SQL 포맷',
+    keywords: ['sql', '포맷', 'format', '쿼리', 'query', 'oracle', '정렬'],
+    category: 'format',
+    load: () => import('./tools/sql-format/index').then((m) => m.default),
+  },
+  {
     id: 'base64',
     name: 'Base64',
     keywords: ['base64', 'b64', '인코딩', '디코딩', 'encode', 'decode'],
