@@ -50,6 +50,13 @@ export const tools: Tool[] = [
     category: 'calc',
     load: () => import('./tools/time-calc/index').then((m) => m.default),
   },
+  {
+    id: 'json-diff',
+    name: 'JSON 비교',
+    keywords: ['json', 'diff', '비교', '차이', 'compare'],
+    category: 'format',
+    load: () => import('./tools/json-diff/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
