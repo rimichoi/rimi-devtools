@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toExifRows, extractGps, formatCoordinate } from './logic';
+import { toExifRows, toExifResult, extractGps, formatCoordinate } from './logic';
 
 describe('toExifRows', () => {
   it('알려진 키를 한글 라벨로 바꾼다', () => {
@@ -14,9 +14,15 @@ describe('toExifRows', () => {
   });
 
   it('Date 를 읽기 좋게 만든다', () => {
-    const rows = toExifRows({ DateTimeOriginal: new Date('2026-08-14T05:30:00Z') });
+    const date = new Date('2026-08-14T05:30:00Z');
+    // 기대값은 로직과 동일한 toLocaleString('ko-KR') 호출로 직접 계산한다 — 실행
+    // 환경의 시스템 타임존에 좌우되는 값이라 리터럴로 고정할 수 없다. 다만 이
+    // 값은 logic.ts 의 Date 분기가 JSON.stringify 로 대체되면(ISO 문자열이 되어)
+    // 확실히 달라지므로, 느슨한 /2026/ 정규식과 달리 그 변이를 실제로 잡아낸다.
+    const expected = date.toLocaleString('ko-KR');
+    const rows = toExifRows({ DateTimeOriginal: date });
     const row = rows.find((r) => r.label === '촬영 일시');
-    expect(row?.value).toMatch(/2026/);
+    expect(row?.value).toBe(expected);
   });
 
   it('undefined 와 null 값은 제외한다', () => {
@@ -31,6 +37,32 @@ describe('toExifRows', () => {
 
   it('빈 객체는 빈 배열이다', () => {
     expect(toExifRows({})).toEqual([]);
+  });
+});
+
+describe('toExifResult', () => {
+  it('errors 키가 없으면 그대로 통과한다 (partial: false)', () => {
+    const result = toExifResult({ Make: 'Apple' });
+    expect(result).toEqual({
+      ok: true,
+      value: { rows: [{ label: '제조사', value: 'Apple' }], partial: false },
+    });
+  });
+
+  it('errors 와 함께 다른 유효한 키가 있으면 errors 는 표에서 빼고 partial: true 로 알린다', () => {
+    const result = toExifResult({ Make: 'Apple', errors: [new Error("Couldn't read segment")] });
+    expect(result).toEqual({
+      ok: true,
+      value: { rows: [{ label: '제조사', value: 'Apple' }], partial: true },
+    });
+  });
+
+  it('errors 뿐이고 다른 유효한 키가 없으면 ok: false 한국어 오류를 반환한다', () => {
+    const result = toExifResult({ errors: [new Error("Couldn't read segment")] });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/[가-힣]/);
+    expect(result.error).not.toMatch(/Couldn't read segment/);
   });
 });
 
