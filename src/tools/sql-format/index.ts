@@ -4,7 +4,7 @@ import { createSelect } from '../../ui/select';
 import { formatSql, SQL_DIALECTS } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const dialect = createSelect(SQL_DIALECTS);
     const keywordCase = createSelect([
       ['upper', '키워드 대문자'],
@@ -27,7 +27,6 @@ const mod: ToolModule = {
       },
     });
 
-    if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
 };

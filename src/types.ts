@@ -5,8 +5,16 @@ export type ToolResult<T = string> =
 export type ToolCategory = 'format' | 'convert' | 'encode' | 'calc' | 'file';
 
 export interface ToolModule {
-  /** root 에 UI 를 붙이고, 정리 함수를 반환한다. */
-  mount(root: HTMLElement, initialInput?: string): () => void;
+  /**
+   * root 에 UI 를 붙이고, 정리 함수를 반환한다.
+   *
+   * 초기 입력값을 받는 인자는 두지 않는다. 한때 `initialInput` 이 선언돼 있었고
+   * 6개 도구가 구현까지 해두었지만 넘기는 곳이 한 번도 없었다 — 그리고 이 값을
+   * 넘길 자연스러운 경로는 URL(쿼리/해시 파라미터)인데, 사용자 payload 를 URL 에
+   * 싣는 것은 이 프로젝트가 없애려는 습관 그 자체다. URL 은 히스토리와 referrer,
+   * 서버 로그에 남는다. 배선하지 않을 기능을 타입 계약이 광고하지 않도록 지웠다.
+   */
+  mount(root: HTMLElement): () => void;
 }
 
 export interface Tool {

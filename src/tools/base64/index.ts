@@ -4,7 +4,7 @@ import { createSelect } from '../../ui/select';
 import { encodeBase64, decodeBase64 } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const mode = createSelect([
       ['encode', '인코딩 (텍스트 → Base64)'],
       ['decode', '디코딩 (Base64 → 텍스트)'],
@@ -19,7 +19,6 @@ const mod: ToolModule = {
       },
     });
 
-    if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
 };

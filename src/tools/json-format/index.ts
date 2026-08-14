@@ -4,7 +4,7 @@ import { createSelect } from '../../ui/select';
 import { formatJson, type FormatOptions } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const indent = createSelect([
       ['2', '들여쓰기 2칸'],
       ['4', '들여쓰기 4칸'],
@@ -33,7 +33,6 @@ const mod: ToolModule = {
       },
     });
 
-    if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
 };

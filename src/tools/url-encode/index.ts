@@ -4,7 +4,7 @@ import { createSelect } from '../../ui/select';
 import { encodeUrl, decodeUrl, type UrlMode } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const direction = createSelect([
       ['encode', '인코딩'],
       ['decode', '디코딩'],
@@ -24,7 +24,6 @@ const mod: ToolModule = {
       },
     });
 
-    if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
 };

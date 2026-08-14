@@ -3,7 +3,7 @@ import { createIOPane } from '../../ui/ioPane';
 import { countText, formatStats } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const pane = createIOPane(root, {
       inputLabel: '텍스트',
       outputLabel: '통계',
@@ -13,7 +13,6 @@ const mod: ToolModule = {
       },
     });
 
-    if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
 };

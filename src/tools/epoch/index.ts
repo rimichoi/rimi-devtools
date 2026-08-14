@@ -5,7 +5,7 @@ import { createNumberForm } from '../../ui/numberForm';
 import { fromEpoch, toEpoch, formatEpochInfo, type EpochUnit, type TimeZone } from './logic';
 
 const mod: ToolModule = {
-  mount(root, initialInput) {
+  mount(root) {
     const unit = createSelect([
       ['auto', '단위 자동 판별'],
       ['seconds', '초로 해석'],
@@ -67,7 +67,6 @@ const mod: ToolModule = {
     });
     zoneBar.append(nowButton);
 
-    if (initialInput) pane.setInput(initialInput);
 
     return () => {
       pane.destroy();
