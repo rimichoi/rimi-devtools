@@ -163,7 +163,64 @@ test('즐겨찾기는 Ctrl/Cmd+D 로 키보드만으로 토글할 수 있고, �
   await expect(page.locator('.palette-row').first().locator('.palette-star')).toHaveText('☆');
 });
 
-test('행의 접근성 이름에는 즐겨찾기 문구가 섞이지 않고, 상태는 설명으로 따로 전달된다', async ({ page }) => {
+test('IME 조합 중에도 Ctrl/Cmd+D 는 preventDefault 되고 즐겨찾기가 토글된다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+  const input = page.locator('.palette-box input');
+  await expect(input).toBeVisible();
+  await input.pressSequentially('포');
+
+  // Ctrl/Cmd+K 와 마찬가지로 Ctrl/Cmd+D 도 IME 가 조합을 확정하는 데 쓰는 키가
+  // 아니므로, 조합 중(isComposing: true)에도 이 핸들러가 먼저 처리해 브라우저의
+  // 네이티브 북마크 창으로 새어 나가면 안 된다(preventDefault 확인).
+  const result = await page.evaluate(() => {
+    const el = document.querySelector('.palette-box input') as HTMLInputElement;
+    const event = new KeyboardEvent('keydown', {
+      key: 'd',
+      code: 'KeyD',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    });
+    el.dispatchEvent(event);
+    return { defaultPrevented: event.defaultPrevented };
+  });
+  expect(result.defaultPrevented, '조합 중 Ctrl+D 가 preventDefault 되지 않아 브라우저로 샐 수 있습니다').toBe(true);
+
+  // 브라우저로 새지 않을 뿐 아니라, 즐겨찾기도 실제로 켜져야 한다(무반응이면 안 됨).
+  const favorites = await page.evaluate(() => localStorage.getItem('rdt.favorites'));
+  expect(favorites).toBe(JSON.stringify(['json-format']));
+});
+
+test('한글 키보드 레이아웃에서도 Ctrl/Cmd+D 가 물리 키 위치(event.code) 기준으로 동작한다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+  const input = page.locator('.palette-box input');
+  await expect(input).toBeVisible();
+
+  // 한글 입력 소스가 활성일 때 물리 D 키는 event.key 로 자모(예: 'ㅇ')를 보고할 수
+  // 있다. event.code('KeyD')는 레이아웃과 무관하게 항상 물리 위치를 가리키므로,
+  // event.key 가 알파벳이 아니어도 단축키가 동작해야 한다.
+  const result = await page.evaluate(() => {
+    const el = document.querySelector('.palette-box input') as HTMLInputElement;
+    const event = new KeyboardEvent('keydown', {
+      key: 'ㅇ',
+      code: 'KeyD',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    el.dispatchEvent(event);
+    return { defaultPrevented: event.defaultPrevented };
+  });
+  expect(result.defaultPrevented).toBe(true);
+
+  const favorites = await page.evaluate(() => localStorage.getItem('rdt.favorites'));
+  expect(favorites).toBe(JSON.stringify(['json-format']));
+});
+
+test('행의 접근성 이름에는 즐겨찾기 문구가 섞이지 않고, 상태는 설명으로 따로 전달된다 (전수 검증)', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('ControlOrMeta+k');
   await expect(page.locator('.palette-box input')).toBeVisible();
@@ -175,15 +232,28 @@ test('행의 접근성 이름에는 즐겨찾기 문구가 섞이지 않고, 상
   const { nodes } = await client.send('Accessibility.getFullAXTree');
   const optionNodes = nodes.filter((n) => n.role?.value === 'option');
 
-  expect(optionNodes.length).toBeGreaterThan(0);
+  // 도구가 10개인데 한 행만 검사하면 "즐겨찾기가 아닌 9개 행에도 상태 문구가
+  // 새는" 결함을 놓친다 — 옵션 전수를 대상으로 이름과 설명을 각각 검사한다.
+  expect(optionNodes.length).toBeGreaterThan(1);
   for (const node of optionNodes) {
     const name = node.name?.value ?? '';
     expect(name, `옵션 이름에 "즐겨찾기" 문구가 섞였습니다: "${name}"`).not.toContain('즐겨찾기');
   }
 
-  // 방금 즐겨찾기한(맨 위로 고정된) 첫 행은 상태가 description 으로 전달된다.
-  const firstOption = optionNodes[0];
-  expect(firstOption?.description?.value).toBe('즐겨찾기에 있음');
+  // 즐겨찾기는 정확히 하나만 켰으므로, description 이 "즐겨찾기에 있음" 인 옵션도
+  // 정확히 하나여야 한다. 나머지 전부는 description 이 없어야 한다.
+  const withFavoriteDescription = optionNodes.filter((n) => n.description?.value === '즐겨찾기에 있음');
+  expect(withFavoriteDescription.map((n) => n.name?.value)).toEqual(['JSON 포맷']);
+  expect(withFavoriteDescription).toHaveLength(1);
+
+  // option 의 description 필드만 봐서는, "즐겨찾기가 아닌 행에도 숨김 span 을 만들어
+  // 두고 연결만 안 한" 경우를 놓친다 — aria-describedby 로 참조되지 않아도 DOM에
+  // 존재하는 .visually-hidden span 은 그 자체로 별도의 AX 노드(예: StaticText)가
+  // 돼 object/touch 탐색 등 다른 경로로 새어 나갈 수 있다. 전체 AX 트리에서 그
+  // 문구를 이름으로 가진 노드 수를 세어, 즐겨찾기 개수(1)와 정확히 같은지까지
+  // 확인한다 — 이게 진짜 "전수" 검증이다.
+  const anyNodeWithPhrase = nodes.filter((n) => n.name?.value === '즐겨찾기에 있음');
+  expect(anyNodeWithPhrase).toHaveLength(1);
 });
 
 test('즐겨찾기 별을 누르면 해당 행으로 이동하지 않고, 목록 맨 위로 고정된다', async ({ page }) => {

@@ -104,17 +104,22 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
         toggleFavorite(tool);
       });
 
-      const status = document.createElement('span');
-      status.id = statusId(tool);
-      status.className = 'visually-hidden';
-      status.textContent = '즐겨찾기에 있음';
+      row.append(star, name);
+      // 즐겨찾기 상태를 스크린리더에 전달하는 숨김 설명은 즐겨찾기인 행에만 만든다.
+      // 모든 행에 만들어두고 즐겨찾기일 때만 aria-describedby 로 "연결"만 하면, 연결
+      // 안 된 span 도 .visually-hidden(clip 방식)이라 접근성 트리에는 그대로 남아
+      // 즐겨찾기가 아닌 행에서도 "즐겨찾기에 있음"이 읽힌다 — 정확히 반대 정보다.
       if (isFavorite) {
+        const status = document.createElement('span');
+        status.id = statusId(tool);
+        status.className = 'visually-hidden';
+        status.textContent = '즐겨찾기에 있음';
+        row.append(status);
         row.setAttribute('aria-describedby', statusId(tool));
       } else {
         row.removeAttribute('aria-describedby');
       }
 
-      row.append(star, name, status);
       list.append(row);
 
       if (isCursor) row.scrollIntoView({ block: 'nearest' });
@@ -170,12 +175,29 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
   }
 
   function onKeydown(event: KeyboardEvent): void {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    // Cmd/Ctrl+K, Cmd/Ctrl+D 는 둘 다 modifier 를 낀 단축키이고 IME 가 조합을
+    // 확정하는 데 쓰는 키(Enter/Escape/화살표)가 아니므로, 아래 IME 가드보다 앞에서
+    // 처리한다. 한글 등 키보드 레이아웃에서는 event.key 가 자모로 보고될 수 있어
+    // (예: 물리 D 키가 'ㅇ' 로 옴) event.key 대신 물리 키 위치인 event.code
+    // ('KeyK'/'KeyD') 로 판정한다 — 레이아웃과 무관하게 항상 동작한다.
+    if ((event.metaKey || event.ctrlKey) && event.code === 'KeyK') {
       event.preventDefault();
       overlay.hidden ? open() : close();
       return;
     }
     if (overlay.hidden) return;
+
+    if ((event.ctrlKey || event.metaKey) && event.code === 'KeyD') {
+      // 별 토글은 role="option" 안에 tab-stop 을 두지 않는 대신(N1), 커서가 있는
+      // 행에 대해 이 단축키로 키보드/스크린리더 사용자에게 즐겨찾기 조작을 제공한다.
+      // 화면에 힌트 텍스트(hint)로도 노출한다. Cmd/Ctrl+K 와 같은 이유로 IME 가드
+      // 앞에서 처리한다 — 뒤에 두면 조합 중에 이 키가 preventDefault 되지 않고
+      // 브라우저의 네이티브 북마크 창으로 새어 나갈 수 있다.
+      event.preventDefault();
+      const tool = matches[cursor];
+      if (tool) toggleFavorite(tool);
+      return;
+    }
 
     // 한글 등 IME 조합 중에는 Escape(조합 취소)/화살표(후보 이동)/Enter(음절 확정)를
     // 전부 IME 에 맡겨야 한다. 이 핸들러가 가로채면 조합 취소용 Escape 에 팔레트가
@@ -206,13 +228,6 @@ export function createPalette(tools: Tool[]): { destroy(): void } {
       // 않도록 항상 input 에 포커스를 묶어 둔다.
       event.preventDefault();
       input.focus();
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
-      // 별 토글은 role="option" 안에 tab-stop 을 두지 않는 대신(N1), 커서가 있는
-      // 행에 대해 이 단축키로 키보드/스크린리더 사용자에게 즐겨찾기 조작을 제공한다.
-      // 화면에 힌트 텍스트(hint)로도 노출한다.
-      event.preventDefault();
-      const tool = matches[cursor];
-      if (tool) toggleFavorite(tool);
     }
   }
 
