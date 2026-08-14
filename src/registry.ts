@@ -2,6 +2,13 @@ import type { Tool } from './types';
 
 export const tools: Tool[] = [
   {
+    id: 'json-format',
+    name: 'JSON 포맷',
+    keywords: ['json', '포맷', 'format', 'pretty', '정렬', '압축', 'minify', 'viewer'],
+    category: 'format',
+    load: () => import('./tools/json-format/index').then((m) => m.default),
+  },
+  {
     id: 'base64',
     name: 'Base64',
     keywords: ['base64', 'b64', '인코딩', '디코딩', 'encode', 'decode'],
