@@ -15,8 +15,12 @@ JSON 포맷터, SQL 포맷터, base64 디코더 같은 도구를 쓸 때마다 �
 주장이 아니라 확인할 수 있는 세 가지다.
 
 1. **CSP 로 막혀 있다.** `connect-src 'self'` 라서 외부 도메인으로 향하는
-   fetch/XHR/WebSocket 은 브라우저가 거부한다. `public/_headers` 에서 볼 수 있다.
-   `form-action 'none'` 으로 폼 제출을 통한 우회도 막았다.
+   fetch/XHR/WebSocket 은 브라우저가 거부한다. `form-action 'none'` 으로 폼 제출을
+   통한 우회도 막았다. 어디에 배포하든 항상 적용되는 것은 `index.html` 의 CSP
+   meta 태그이고, `public/_headers` 는 Netlify 에 배포됐을 때 같은 정책을 응답
+   헤더로 한 번 더 내보낸다(여기에만 `frame-ancestors 'none'` 이 더 붙는다 —
+   meta 태그에서는 스펙상 무시되는 directive 라서다). 둘 다, 그리고 둘이 서로
+   어긋나지 않는지까지 `e2e/csp.spec.ts` 가 매 CI 마다 검사한다.
 2. **CI 가 매번 검사한다.** `e2e/no-egress.spec.ts` 가 모든 도구를 열고 데이터를
    입력한 뒤, 자기 오리진 밖으로 나간 요청이나 CSP 위반이 하나라도 있으면 빌드를
    실패시킨다. 누군가 실수로 CDN 폰트를 추가해도 여기서 걸린다.
