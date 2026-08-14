@@ -17,6 +17,7 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
   'text-count': { kind: 'text', values: ['안녕하세요 반갑습니다'] },
   percent: { kind: 'text', values: ['25', '200'] },
   epoch: { kind: 'text', values: ['1700000000'] },
+  'time-calc': { kind: 'text', values: ['01:30:00', '00:45:30'] },
 };
 
 export function sampleFor(id: string): SampleInput {

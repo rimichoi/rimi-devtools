@@ -36,6 +36,13 @@ export const tools: Tool[] = [
     category: 'convert',
     load: () => import('./tools/epoch/index').then((m) => m.default),
   },
+  {
+    id: 'time-calc',
+    name: '시간/날짜 계산',
+    keywords: ['시간', '날짜', '계산', 'time', 'date', '일수', 'diff', 'd-day'],
+    category: 'calc',
+    load: () => import('./tools/time-calc/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
