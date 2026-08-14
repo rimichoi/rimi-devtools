@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseHash, resolveToolId } from './router';
+import { parseHash, resolveToolId, shouldRender, UNSET } from './router';
 import type { Tool } from './types';
 
 const tools = [
@@ -42,5 +42,26 @@ describe('resolveToolId', () => {
 
   it('도구가 하나도 없으면 null 이다', () => {
     expect(resolveToolId('#/base64', [])).toBeNull();
+  });
+});
+
+describe('shouldRender', () => {
+  it('아직 렌더링한 적이 없으면 결과가 null 이어도 렌더링해야 한다', () => {
+    // 레지스트리가 비어 resolveToolId 가 null 을 돌려주는 최초 렌더링 상황.
+    expect(shouldRender(null, UNSET)).toBe(true);
+  });
+
+  it('아직 렌더링한 적이 없으면 결과가 도구 id 여도 렌더링해야 한다', () => {
+    expect(shouldRender('base64', UNSET)).toBe(true);
+  });
+
+  it('직전과 같은 id 면 다시 렌더링하지 않는다', () => {
+    expect(shouldRender('base64', 'base64')).toBe(false);
+    expect(shouldRender(null, null)).toBe(false);
+  });
+
+  it('직전과 다른 id 면 다시 렌더링한다', () => {
+    expect(shouldRender('epoch', 'base64')).toBe(true);
+    expect(shouldRender(null, 'base64')).toBe(true);
   });
 });

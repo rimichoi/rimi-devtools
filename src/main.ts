@@ -1,19 +1,19 @@
 import './ui/styles.css';
 import { tools, findTool } from './registry';
-import { resolveToolId } from './router';
+import { resolveToolId, shouldRender, UNSET } from './router';
 import { renderSidebar } from './shell/sidebar';
 
 const sidebar = document.querySelector<HTMLElement>('#sidebar');
 const root = document.querySelector<HTMLElement>('#tool-root');
 
 let cleanup: (() => void) | null = null;
-let currentId: string | null = null;
+let currentId: string | null | typeof UNSET = UNSET;
 
 async function render(): Promise<void> {
   if (!root || !sidebar) return;
 
   const id = resolveToolId(location.hash, tools);
-  if (id === currentId) return;
+  if (!shouldRender(id, currentId)) return;
 
   cleanup?.();
   cleanup = null;
