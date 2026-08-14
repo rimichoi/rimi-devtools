@@ -41,14 +41,19 @@ export default defineConfig({
         // 'prompt' 이므로 플러그인도 이 값을 자동으로 켜지 않는다(자동 설정은
         // registerType 'autoUpdate' 일 때만 적용됨).
         //
-        // clientsClaim 은 반대로 명시적으로 켠다 — skipWaiting 과 달리 이건
-        // "기다림 없이 바로 활성화"가 아니라 "이미 활성화된 새 SW 가 이미 열려
-        // 있는 탭도 즉시 맡는다"는 뜻이라 토스트 타이밍에는 영향이 없다. 이게
-        // 꺼져 있으면(기본값) 사용자가 "새로고침"을 눌러 skipWaiting 메시지를
-        // 보내도 이미 열린 탭의 controller 가 바뀌지 않아 controllerchange 가
-        // 발화하지 않고, 버튼을 눌러도 아무 일도 일어나지 않는다(실측 확인,
-        // task-16-fix-1-report.md 참고).
-        clientsClaim: true,
+        // clientsClaim 도 켜지 않는다(한 라운드 전엔 켰다가 뺐다) — 이게 켜져
+        // 있으면 어느 한 탭이 skipWaiting 메시지를 보내는 순간 "열려 있는 모든
+        // 탭"의 controller 가 즉시 바뀐다. vite-plugin-pwa 는 controller 가
+        // 바뀌는 모든 탭에서 무조건 location.reload() 를 거는 리스너를 토스트를
+        // 띄우는 시점에 걸어두는데, 그 탭이 실제로 "새로고침"을 눌렀는지는
+        // 전혀 보지 않는다. 그 결과 clientsClaim 을 켠 채로 실측했을 때 —
+        // 탭 A 에서 새로고침을 누르면 아무것도 누르지 않은 탭 B 가 예고 없이
+        // 리로드되며 입력이 소실됐다(탭 B 가 토스트를 닫아도 막지 못함).
+        // 1차 리뷰가 blocking 으로 지목한 피해가 다중 탭에서 그대로 재현된
+        // 셈이라 뺀다. clientsClaim 없이도 "새로고침"을 누른 탭 자신은
+        // updateToast.ts 가 해당 waiting worker 의 statechange 를 직접
+        // 기다렸다가 스스로 reload() 하므로(일반 네비게이션은 clientsClaim 과
+        // 무관하게 그 시점의 active worker 를 그대로 쓴다) 정상 동작한다.
       },
     }),
   ],

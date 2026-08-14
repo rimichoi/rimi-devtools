@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { TOOL_IDS, sampleFor } from './tools';
 
 const DIST_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
@@ -22,11 +22,33 @@ const KNOWN_INERT_URL_PREFIXES = [
   'https://github.com/MikeKovarik/exifr',
   // rolldown 빌드 런타임 헬퍼가 특정 에러 상황에서 안내하는 문서 링크.
   'https://rolldown.rs/',
+  // workbox 런타임(workbox-*.js) 자체가 개발자에게 남기는 console.warn 문구에
+  // 박힌 문서 링크("Learn more at https://bit.ly/wb-precache"). fetch 되는
+  // 주소가 아니라 사람이 읽는 경고 메시지의 일부다.
+  'https://bit.ly/wb-precache',
 ];
 
 function findUnexpectedExternalUrls(content: string): string[] {
   const matches = content.match(EXTERNAL_URL_PATTERN_GLOBAL) ?? [];
   return matches.filter((url) => !KNOWN_INERT_URL_PREFIXES.some((prefix) => url.startsWith(prefix)));
+}
+
+// dist/assets 뿐 아니라 dist 루트도 재귀로 훑는다. service worker(sw.js) 와
+// workbox 런타임 청크(workbox-<hash>.js) 는 dist 루트에 생기는데, 이 태스크가
+// 새로 만든 파일이자 네트워크에 직접 말을 거는 파일이라 여기가 빠지면 가드가
+// 아니다 — workbox.runtimeCaching 에 외부 CDN URL 을 넣는 실수가 그대로 통과해
+// 버린다.
+function listJsAndCssFilesRecursively(dir: string): string[] {
+  const result: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      result.push(...listJsAndCssFilesRecursively(fullPath));
+    } else if (/\.(js|css)$/.test(entry.name)) {
+      result.push(fullPath);
+    }
+  }
+  return result;
 }
 
 const BASE = 'http://localhost:4173';
@@ -90,17 +112,20 @@ test('빌드 산출물(index.html + JS/CSS 청크 전체)에 외부 호스트 UR
 
   // 하지만 유출 벡터는 대부분 손으로 쓴 20줄짜리 index.html 이 아니라 도구
   // 코드가 번들된 JS 청크 쪽에 있다(엔드포인트 상수, CDN 폰트 URL 등). dist/
-  // 의 모든 JS/CSS 산출물을 직접 읽어서 스캔해야 이 테스트의 이름이 실제
-  // 검사 범위와 맞는다.
-  const assetsDir = join(DIST_DIR, 'assets');
-  const assetFiles = readdirSync(assetsDir).filter((f) => /\.(js|css)$/.test(f));
-  expect(assetFiles.length, 'dist/assets 에 JS/CSS 산출물이 있어야 한다').toBeGreaterThan(0);
+  // 를 통째로(assets/ 와 루트의 sw.js, workbox-*.js 까지) 재귀로 읽어서
+  // 스캔해야 이 테스트의 이름이 실제 검사 범위와 맞는다.
+  const assetFiles = listJsAndCssFilesRecursively(DIST_DIR);
+  expect(assetFiles.length, 'dist 에 JS/CSS 산출물이 있어야 한다').toBeGreaterThan(0);
+  expect(
+    assetFiles.some((f) => f.endsWith('sw.js')),
+    'dist/sw.js 가 스캔 대상에 포함돼야 한다',
+  ).toBe(true);
 
   const offenders: string[] = [];
   for (const file of assetFiles) {
-    const content = readFileSync(join(assetsDir, file), 'utf8');
+    const content = readFileSync(file, 'utf8');
     const unexpected = findUnexpectedExternalUrls(content);
-    if (unexpected.length > 0) offenders.push(`${file}: ${unexpected.join(', ')}`);
+    if (unexpected.length > 0) offenders.push(`${relative(DIST_DIR, file)}: ${unexpected.join(', ')}`);
   }
   expect(offenders, `예상치 못한 외부 호스트 URL 이 포함된 산출물: ${offenders.join(' | ')}`).toEqual([]);
 });
