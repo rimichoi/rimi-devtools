@@ -2,11 +2,19 @@ import { tools } from '../src/registry';
 
 export const TOOL_IDS: string[] = tools.map((t) => t.id);
 
-/** 도구 id 별 샘플 입력. 도구를 추가하면 여기에도 추가한다. */
-export const SAMPLE_INPUT: Record<string, string> = {
-  base64: '안녕하세요',
+/**
+ * 도구가 받는 입력의 모양을 선언한다. 도구를 추가할 때 여기에도 추가한다.
+ * - 'text': 텍스트 입력 필드(들)에 순서대로 채울 값. 필드를 찾지 못하면
+ *   테스트가 실패한다 — "입력을 찾지 못해 그냥 지나감"이 조용히 통과하는 일을 막는다.
+ * - 'none': 텍스트 입력이 아예 없는 도구(예: 파일 드롭존). 텍스트 입력 검사를
+ *   건너뛴다는 것을 명시적으로 선언해야 하며, 선언 없이는 스킵될 수 없다.
+ */
+export type SampleInput = { kind: 'text'; values: string[] } | { kind: 'none' };
+
+export const SAMPLE_INPUT: Record<string, SampleInput> = {
+  base64: { kind: 'text', values: ['안녕하세요'] },
 };
 
-export function sampleFor(id: string): string {
-  return SAMPLE_INPUT[id] ?? 'test';
+export function sampleFor(id: string): SampleInput {
+  return SAMPLE_INPUT[id] ?? { kind: 'text', values: ['test'] };
 }
