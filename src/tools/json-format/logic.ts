@@ -42,15 +42,43 @@ export function stripStringLiterals(json: string): string {
   return out;
 }
 
-/** 소수점과 지수가 붙지 않은, 16자리 이상의 정수 리터럴만 본다 */
-const BIG_INT_RE = /(?<![\w.])-?\d{16,}(?![\d.eE])/g;
+/** JSON 숫자 문법 전체(정수/소수/지수)를 훑는다. 문자열은 이미 지워진 뒤다. */
+const NUMBER_RE = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+
+/**
+ * 리터럴이 정수 값으로 귀결되는지 확인하고, 그렇다면 그 정확한 값을 BigInt 로 재구성한다.
+ * 소수부가 지수로도 상쇄되지 않고 남으면(=진짜 소수) null 을 돌려준다 — 소수는 검사 대상이 아니다.
+ */
+function exactIntegerValue(literal: string): bigint | null {
+  const m = /^(-)?(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(literal);
+  if (!m) return null;
+
+  const sign = m[1] ?? '';
+  const mantissa = m[2] + (m[3] ?? '');
+  const exp = m[4] ? Number(m[4]) : 0;
+  const shift = exp - (m[3]?.length ?? 0);
+
+  if (shift >= 0) return BigInt(sign + mantissa + '0'.repeat(shift));
+
+  // 지수가 소수부보다 덜 밀어내는 경우: 남는 자리가 전부 0 이면 여전히 정수다.
+  const dropCount = -shift;
+  if (dropCount > mantissa.length) return null;
+  const kept = mantissa.slice(0, mantissa.length - dropCount);
+  const dropped = mantissa.slice(mantissa.length - dropCount);
+  if (!/^0*$/.test(dropped)) return null;
+
+  return BigInt(sign + (kept || '0'));
+}
 
 export function findPrecisionLoss(json: string): string[] {
   const masked = stripStringLiterals(json);
   const lost = new Set<string>();
 
-  for (const match of masked.matchAll(BIG_INT_RE)) {
+  for (const match of masked.matchAll(NUMBER_RE)) {
     const literal = match[0];
+    const exact = exactIntegerValue(literal);
+    if (exact === null) continue; // 소수는 검사 대상이 아니다.
+
     const asNumber = Number(literal);
 
     if (!Number.isFinite(asNumber)) {
@@ -58,7 +86,7 @@ export function findPrecisionLoss(json: string): string[] {
       continue;
     }
     try {
-      if (BigInt(literal) !== BigInt(asNumber)) lost.add(literal);
+      if (exact !== BigInt(asNumber)) lost.add(literal);
     } catch {
       lost.add(literal);
     }
@@ -86,7 +114,7 @@ function sortValue(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
 
   const entries = Object.entries(value as Record<string, unknown>);
-  entries.sort(([a], [b]) => a.localeCompare(b));
+  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return Object.fromEntries(entries.map(([key, v]) => [key, sortValue(v)]));
 }
 

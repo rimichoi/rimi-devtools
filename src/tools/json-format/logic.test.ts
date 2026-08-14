@@ -55,6 +55,26 @@ describe('findPrecisionLoss', () => {
   it('음수도 찾는다', () => {
     expect(findPrecisionLoss('{"id":-12345678901234567890}')).toEqual(['-12345678901234567890']);
   });
+
+  it('지수 표기로 적힌, 값이 정수인 리터럴의 정밀도 손실도 찾는다 (정수부 지수)', () => {
+    // 123456789012345678e2 === 12345678901234567800 인데, Number 로는 그 값을 담지 못한다.
+    expect(findPrecisionLoss('{"amount":123456789012345678e2}')).toEqual(['123456789012345678e2']);
+  });
+
+  it('지수 표기로 적힌, 값이 정수인 리터럴의 정밀도 손실도 찾는다 (소수부 + 지수)', () => {
+    // 1.2345678901234567e19 === 12345678901234567000 인데, Number 로는 그 값을 담지 못한다.
+    expect(findPrecisionLoss('{"amount":1.2345678901234567e19}')).toEqual(['1.2345678901234567e19']);
+  });
+
+  it('지수 표기라도 Number 가 정확히 담을 수 있으면 경고하지 않는다', () => {
+    // 1e20 은 2 의 거듭제곱과 5 의 거듭제곱의 곱이라 배정밀도로 정확히 표현된다.
+    expect(findPrecisionLoss('{"v":1e20}')).toEqual([]);
+  });
+
+  it('음의 지수라서 실제로 소수인 값은 대상이 아니다', () => {
+    expect(findPrecisionLoss('{"v":1.5e-10}')).toEqual([]);
+    expect(findPrecisionLoss('{"v":2.5e-3}')).toEqual([]);
+  });
 });
 
 describe('formatJson', () => {
@@ -116,5 +136,13 @@ describe('formatJson', () => {
 
   it('빈 입력은 에러다', () => {
     expect(formatJson('   ', { indent: 2, sortKeys: false }).ok).toBe(false);
+  });
+
+  it('지수 표기 정수의 정밀도 손실에도 경고를 붙인다', () => {
+    // Jackson 이 BigDecimal/double 을 직렬화할 때 흔히 나오는 형태다.
+    const r = formatJson('{"amount":123456789012345678e2}', { indent: 2, sortKeys: false });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.warning).toContain('123456789012345678e2');
   });
 });

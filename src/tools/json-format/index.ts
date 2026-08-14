@@ -33,8 +33,6 @@ const mod: ToolModule = {
       },
     });
 
-    sort.addEventListener('change', pane.run);
-
     if (initialInput) pane.setInput(initialInput);
     return () => pane.destroy();
   },
