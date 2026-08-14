@@ -50,3 +50,9 @@ textarea, input, select, button {
 @media (max-width: 860px) {
   .io-pane { grid-template-columns: 1fr; }
 }
+
+.sidebar-title { font-weight: 700; margin-bottom: 16px; }
+.sidebar-heading { font-size: 11px; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; }
+.sidebar-link { display: block; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
+.sidebar-link:hover { background: var(--surface); }
+.sidebar-link.is-active { background: var(--accent); color: #fff; }
