@@ -2,7 +2,7 @@ import { create } from 'jsondiffpatch';
 import type { ToolResult } from '../../types';
 
 export interface DiffLine {
-  kind: 'added' | 'removed' | 'changed';
+  kind: 'added' | 'removed' | 'changed' | 'unknown';
   path: string;
   before?: string;
   after?: string;
@@ -47,8 +47,13 @@ export function flattenDelta(delta: unknown, path: string[] = []): DiffLine[] {
         lines.push({ kind: 'added', path: rendered, after: show(value[0]) });
       } else if (value.length === 2) {
         lines.push({ kind: 'changed', path: rendered, before: show(value[0]), after: show(value[1]) });
-      } else {
+      } else if (value.length === 3 && value[2] === 0) {
+        // jsondiffpatch 는 삭제를 [oldValue, 0, 0] 로 표현한다. 길이 3 의 다른 형태
+        // (2 = 텍스트 diff, 3 = 이동)는 이 도구가 다루지 않는 옵션이므로 삭제로
+        // 짐작하지 않고 인식 불가로 남긴다.
         lines.push({ kind: 'removed', path: rendered, before: show(value[0]) });
+      } else {
+        lines.push({ kind: 'unknown', path: rendered, before: show(value) });
       }
       continue;
     }
@@ -63,6 +68,7 @@ const MARK: Record<DiffLine['kind'], string> = {
   added: '+',
   removed: '-',
   changed: '~',
+  unknown: '?',
 };
 
 export function formatDiffLines(lines: DiffLine[]): string {
@@ -71,6 +77,7 @@ export function formatDiffLines(lines: DiffLine[]): string {
       const head = `${MARK[line.kind]} ${line.path}`;
       if (line.kind === 'added') return `${head}: ${line.after}`;
       if (line.kind === 'removed') return `${head}: ${line.before}`;
+      if (line.kind === 'unknown') return `${head}: 인식할 수 없는 delta 형태 — ${line.before}`;
       return `${head}: ${line.before} → ${line.after}`;
     })
     .join('\n');
@@ -92,7 +99,13 @@ export function diffJson(leftText: string, rightText: string): ToolResult<string
   const right = parseSide(rightText, '오른쪽');
   if (!right.ok) return right;
 
-  const delta = differ.diff(left.value, right.value);
+  let delta: unknown;
+  try {
+    delta = differ.diff(left.value, right.value);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `JSON 비교 중 오류가 발생했습니다.\n${message}` };
+  }
   const lines = flattenDelta(delta);
 
   if (lines.length === 0) return { ok: true, value: '두 JSON 이 같습니다.' };

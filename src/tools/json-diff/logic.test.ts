@@ -41,6 +41,16 @@ describe('flattenDelta', () => {
   it('차이가 없으면 빈 배열이다', () => {
     expect(flattenDelta(undefined)).toEqual([]);
   });
+
+  it('길이 3 이어도 세 번째 값이 0 이 아니면 삭제로 짐작하지 않는다', () => {
+    // jsondiffpatch 는 텍스트 diff(2)나 이동(3)도 길이 3 배열로 인코딩한다.
+    // 삭제(0)가 아닌 다른 discriminator 를 삭제로 오인하면 안 된다.
+    const result = flattenDelta({ a: ['x', 'y', 2] });
+    expect(result).toEqual([
+      { kind: 'unknown', path: 'a', before: '["x","y",2]' },
+    ]);
+    expect(result[0]?.kind).not.toBe('removed');
+  });
 });
 
 describe('diffJson', () => {
@@ -76,5 +86,20 @@ describe('diffJson', () => {
 
   it('한쪽이 비어 있으면 에러다', () => {
     expect(diffJson('', '{"a":1}').ok).toBe(false);
+  });
+
+  // 아래 세 케이스는 differ.diff() 가 던지지 않는다는 가정을 지키는 회귀 테스트다.
+  // 라이브러리 버전이 바뀌어 이 가정이 깨지면, diffJson 의 try/catch 가 ok:false 로
+  // 바꿔주더라도 이 테스트는 ok:true 를 기대하므로 실패해 신호를 보낸다.
+  it('타입이 다른 값도 예외 없이 비교한다', () => {
+    expect(diffJson('1', '{"a":1}').ok).toBe(true);
+  });
+
+  it('한쪽이 null 이어도 예외 없이 비교한다', () => {
+    expect(diffJson('null', '{"a":1}').ok).toBe(true);
+  });
+
+  it('__proto__ 키가 있어도 예외 없이 비교한다', () => {
+    expect(diffJson('{"__proto__":{"polluted":true}}', '{}').ok).toBe(true);
   });
 });
