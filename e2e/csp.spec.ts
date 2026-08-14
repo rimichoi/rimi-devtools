@@ -45,6 +45,18 @@ const HEADERS_ONLY_DIRECTIVES: Record<string, string> = {
 /** 어느 쪽에도 절대 들어가면 안 되는 토큰. */
 const FORBIDDEN_TOKENS = ["'unsafe-inline'", "'unsafe-eval'"];
 
+/**
+ * `_headers` 가 CSP 말고도 내보내는 보안 헤더. CSP 에 테스트를 붙인 논리가
+ * 그대로 적용된다 — 파일에 적혀 있는데 아무도 확인하지 않으면, 사라져도 아무도
+ * 모른다. 특히 `Referrer-Policy: no-referrer` 는 "URL 이 referrer 로 샌다"는
+ * 이유로 `initialInput` 을 배선하지 않고 지운 결정(src/types.ts)과 직결되는
+ * 방어선이다.
+ */
+const REQUIRED_HEADERS: Record<string, string> = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+};
+
 function parseCsp(policy: string): Map<string, string> {
   const directives = new Map<string, string>();
   for (const part of policy.split(';')) {
@@ -67,13 +79,19 @@ function extractMetaCsp(html: string): string {
   return content;
 }
 
-function extractHeaderCsp(headersFile: string, path: string): string {
+/** `_headers` 파일에서 헤더 한 줄의 값을 뽑는다. 없으면 던져서 시끄럽게 실패한다. */
+function extractHeader(headersFile: string, name: string, path: string): string {
+  const prefix = new RegExp(`^${name}:`, 'i');
   const line = headersFile
     .split('\n')
     .map((l) => l.trim())
-    .find((l) => /^content-security-policy:/i.test(l));
-  if (line === undefined) throw new Error(`${path} 에 Content-Security-Policy 줄이 없습니다.`);
-  return line.replace(/^content-security-policy:/i, '').trim();
+    .find((l) => prefix.test(l));
+  if (line === undefined) throw new Error(`${path} 에 ${name} 줄이 없습니다.`);
+  return line.replace(prefix, '').trim();
+}
+
+function extractHeaderCsp(headersFile: string, path: string): string {
+  return extractHeader(headersFile, 'content-security-policy', path);
 }
 
 /** 소스가 아니라 실제로 서빙되는 빌드 산출물의 meta CSP 를 읽는다. */
@@ -121,6 +139,13 @@ test('meta CSP 와 public/_headers 의 CSP 가 어긋나지 않는다', async ({
   expect(Object.fromEntries(metaDirectives), 'meta CSP 와 _headers CSP 가 다릅니다').toEqual(
     Object.fromEntries(headerDirectives),
   );
+});
+
+test('public/_headers 가 CSP 외 보안 헤더(nosniff, no-referrer)도 값까지 그대로 선언한다', () => {
+  const file = readFileSync(PUBLIC_HEADERS_PATH, 'utf8');
+  for (const [name, expected] of Object.entries(REQUIRED_HEADERS)) {
+    expect(extractHeader(file, name, 'public/_headers'), `public/_headers 의 ${name} 헤더`).toBe(expected);
+  }
 });
 
 test('public/_headers 가 빌드 산출물(dist)에 그대로 복사된다', () => {
