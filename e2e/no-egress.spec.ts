@@ -103,6 +103,19 @@ for (const id of TOOL_IDS) {
         if (value === undefined) continue;
         await fields.nth(i).fill(value);
       }
+    } else if (sample.kind === 'file') {
+      const fileInput = page.locator('#tool-root input[type="file"]');
+      // 텍스트 도구와 같은 이유로, 파일 입력을 못 찾으면 아무것도 올리지 않은
+      // 채 통과하는 대신 여기서 바로 실패한다.
+      expect(
+        await fileInput.count(),
+        `${id}: 파일 입력을 선언했지만 input[type="file"] 을 찾지 못했습니다`,
+      ).toBeGreaterThan(0);
+
+      await fileInput.first().setInputFiles(sample.path);
+      // 처리가 끝나기 전에 판정하면 "아직 요청이 안 나갔을 뿐"인 상태를 무결로
+      // 오독한다. 결과가 화면에 나타난 뒤에 요청 목록을 본다.
+      await expect(page.locator(sample.settledSelector).first()).toBeVisible();
     }
 
     await page.waitForTimeout(300);

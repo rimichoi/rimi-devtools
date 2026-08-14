@@ -13,6 +13,14 @@ const BASE_ORIGIN = new URL(BASE).origin;
 
 test('exif: GPS 픽스처를 넣으면 경고 배너와 좌표가 화면에 보인다', async ({ page }) => {
   const external: string[] = [];
+  // CSP 에 막힌 요청은 page.on('request') 에 도달하지 않는다. 즉 external 만으로는
+  // "요청을 시도했지만 브라우저가 거부한" 경우를 하나도 못 본다 — 콘솔 위반
+  // 로그가 그 경우에 실제로 발화하는 유일한 신호다. 이 도구는 파일을 받는
+  // 유일한 도구이면서 ioPane 의 try/catch 백스톱 밖에 있으므로 둘 다 본다.
+  const cspViolations: string[] = [];
+  page.on('console', (msg) => {
+    if (/Content Security Policy|Refused to/i.test(msg.text())) cspViolations.push(msg.text());
+  });
   page.on('request', (req) => {
     let origin: string;
     try {
@@ -43,4 +51,5 @@ test('exif: GPS 픽스처를 넣으면 경고 배너와 좌표가 화면에 보�
   // (지도 링크·임베드·역지오코딩 금지 규칙의 실측 확인).
   await page.waitForTimeout(300);
   expect(external, `외부 요청이 발생했습니다: ${external.join(' | ')}`).toEqual([]);
+  expect(cspViolations, `CSP 위반: ${cspViolations.join(' | ')}`).toEqual([]);
 });
