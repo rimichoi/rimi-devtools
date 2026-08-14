@@ -1,5 +1,6 @@
 import { create } from 'jsondiffpatch';
 import type { ToolResult } from '../../types';
+import { describeSyntaxError } from '../json-format/logic';
 
 export interface DiffLine {
   kind: 'added' | 'removed' | 'changed' | 'unknown';
@@ -88,8 +89,11 @@ function parseSide(text: string, label: '왼쪽' | '오른쪽'): ToolResult<unkn
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `${label} JSON 의 구문이 잘못되었습니다.\n${message}` };
+    // 엔진 원문을 그대로 붙이면 4000줄짜리 payload 에서 위치 정보 없는 영어
+    // 메시지만 남는다. 같은 payload 를 JSON 포맷에 넣으면 줄/칸을 알려주는데
+    // 여기서는 아니라면, 같은 제품·같은 오류에 답변 품질이 둘인 셈이다.
+    // json-format 의 describeSyntaxError 는 이미 export 돼 있고 DOM-free 다.
+    return { ok: false, error: `${label} ${describeSyntaxError(text, err)}` };
   }
 }
 

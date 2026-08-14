@@ -84,6 +84,20 @@ describe('diffJson', () => {
     expect(r.error).toContain('오른쪽');
   });
 
+  // json-format 과 같은 입력 종류에는 같은 품질의 답을 줘야 한다. 예전에는
+  // 엔진 원문("Unexpected token 'o', ... is not valid JSON")만 그대로 붙여서,
+  // 같은 payload 를 JSON 포맷에 넣으면 줄/칸을 알려주는데 JSON 비교에서는
+  // 위치 정보 없는 영어 메시지가 나왔다.
+  it('구문 오류에 어느 쪽인지와 줄/칸 위치를 함께 알려준다', () => {
+    const broken = '{\n  "a": 1,\n  "b" 2\n}';
+    const r = diffJson('{"a":1}', broken);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain('오른쪽');
+    expect(r.error).toMatch(/3\s*번째 줄/);
+    expect(r.error).toMatch(/번째 칸/);
+  });
+
   it('한쪽이 비어 있으면 에러다', () => {
     expect(diffJson('', '{"a":1}').ok).toBe(false);
   });
