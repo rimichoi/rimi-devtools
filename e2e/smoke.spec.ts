@@ -34,3 +34,17 @@ test('도구 사이를 이동하면 화면이 새 도구로 교체된다', async
   await expect(page.locator(`#tool-root[data-tool="${second}"]`)).toBeVisible();
   await expect(page.locator('#tool-root')).not.toBeEmpty();
 });
+
+test('Cmd+K 로 팔레트를 열고 도구로 이동한다', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('ControlOrMeta+k');
+
+  const input = page.locator('.palette-box input');
+  await expect(input).toBeVisible();
+
+  await input.fill('epoch');
+  await page.keyboard.press('Enter');
+
+  await expect(page).toHaveURL(/#\/epoch$/);
+  await expect(page.locator('.palette-overlay')).toBeHidden();
+});

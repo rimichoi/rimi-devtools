@@ -1,5 +1,6 @@
 import type { Tool, ToolCategory } from '../types';
 import { CATEGORY_LABEL } from '../types';
+import { createThemeToggle } from './theme';
 
 const ORDER: ToolCategory[] = ['format', 'convert', 'encode', 'calc', 'file'];
 
@@ -35,4 +36,6 @@ export function renderSidebar(
     }
     container.append(list);
   }
+
+  container.append(createThemeToggle());
 }

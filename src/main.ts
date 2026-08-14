@@ -2,6 +2,9 @@ import './ui/styles.css';
 import { tools, findTool } from './registry';
 import { resolveToolId, shouldRender, UNSET } from './router';
 import { renderSidebar } from './shell/sidebar';
+import { prefs } from './shell/prefs';
+import { applyTheme } from './shell/theme';
+import { createPalette } from './shell/palette';
 
 const sidebar = document.querySelector<HTMLElement>('#sidebar');
 const root = document.querySelector<HTMLElement>('#tool-root');
@@ -28,6 +31,8 @@ async function render(): Promise<void> {
     return;
   }
 
+  prefs.pushRecent(id);
+
   const tool = findTool(id);
   if (!tool) return;
 
@@ -37,4 +42,6 @@ async function render(): Promise<void> {
 }
 
 window.addEventListener('hashchange', () => void render());
+applyTheme(prefs.getTheme());
+createPalette(tools);
 void render();

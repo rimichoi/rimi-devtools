@@ -84,3 +84,13 @@ textarea, input, select, button {
 .exif-table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .exif-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; word-break: break-all; }
 .exif-table td:first-child { color: var(--muted); width: 180px; }
+
+.theme-toggle { margin-top: 24px; width: 100%; font-size: 12px; cursor: pointer; }
+.palette-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; justify-content: center; padding-top: 12vh; z-index: 200; }
+.palette-overlay[hidden] { display: none; }
+.palette-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(520px, 92vw); height: fit-content; overflow: hidden; }
+.palette-box input { width: 100%; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 14px; font-size: 15px; }
+.palette-box input:focus { outline: none; }
+.palette-list { max-height: 320px; overflow-y: auto; }
+.palette-row { padding: 10px 14px; cursor: pointer; font-size: 14px; }
+.palette-row.is-cursor { background: var(--accent); color: #fff; }
