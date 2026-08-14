@@ -5,6 +5,7 @@ import { renderSidebar } from './shell/sidebar';
 import { prefs } from './shell/prefs';
 import { applyTheme } from './shell/theme';
 import { createPalette } from './shell/palette';
+import { setupUpdatePrompt } from './shell/updateToast';
 
 const sidebar = document.querySelector<HTMLElement>('#sidebar');
 const root = document.querySelector<HTMLElement>('#tool-root');
@@ -44,4 +45,5 @@ async function render(): Promise<void> {
 window.addEventListener('hashchange', () => void render());
 applyTheme(prefs.getTheme());
 createPalette(tools);
+if (import.meta.env.PROD) setupUpdatePrompt();
 void render();

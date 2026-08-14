@@ -54,3 +54,8 @@ for (const id of TOOL_IDS) {
     expect(cspViolations, `CSP 위반: ${cspViolations.join(' | ')}`).toEqual([]);
   });
 }
+
+test('빌드 산출물에 외부 호스트 URL 이 없다', async ({ request }) => {
+  const html = await (await request.get('/')).text();
+  expect(html).not.toMatch(/https?:\/\/(?!localhost)/);
+});
