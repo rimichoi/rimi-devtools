@@ -15,6 +15,13 @@ export const tools: Tool[] = [
     category: 'encode',
     load: () => import('./tools/url-encode/index').then((m) => m.default),
   },
+  {
+    id: 'text-count',
+    name: '글자수 세기',
+    keywords: ['글자수', '자소', '바이트', 'count', 'length', '단어', '텍스트'],
+    category: 'calc',
+    load: () => import('./tools/text-count/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {

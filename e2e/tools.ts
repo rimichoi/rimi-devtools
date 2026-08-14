@@ -14,6 +14,7 @@ export type SampleInput = { kind: 'text'; values: string[] } | { kind: 'none' };
 export const SAMPLE_INPUT: Record<string, SampleInput> = {
   base64: { kind: 'text', values: ['안녕하세요'] },
   'url-encode': { kind: 'text', values: ['https://a.com/b?q=한글 검색'] },
+  'text-count': { kind: 'text', values: ['안녕하세요 반갑습니다'] },
 };
 
 export function sampleFor(id: string): SampleInput {
