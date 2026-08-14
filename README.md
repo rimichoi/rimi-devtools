@@ -50,6 +50,11 @@ JSON 포맷 / JSON 비교 / SQL 포맷 / Epoch 변환 / Base64 / URL 인코딩 /
 
 ## 개발
 
+**Node 22 이상**이 필요하다. Vite 8 이 Node 20.19+/22.12+ 를 요구하는데, 더 낮은
+버전에서는 의존성 안쪽에서 module resolution 이나 syntax 오류가 나면서 원인이
+Node 버전이라는 신호가 전혀 뜨지 않는다. `package.json` 의 `engines` 에 하한을
+적어 두었으니 `npm install` 이 먼저 경고해 준다. CI 와 Netlify 도 22 를 쓴다.
+
 ```bash
 npm install
 npm run dev          # 개발 서버
