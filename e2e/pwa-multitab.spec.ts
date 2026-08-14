@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { execSync, spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { rmSync, mkdtempSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import process from 'node:process';
 
 // N-1 회귀 가드: clientsClaim 을 켜둔 채(1차 fix 라운드) 한 탭에서 "새로고침"을
 // 누르면, 아무것도 누르지 않은 다른 탭까지 예고 없이 리로드되며 작업 중이던
@@ -13,14 +14,13 @@ import { tmpdir } from 'node:os';
 //
 // 이 시나리오는 "배포 전/배포 후" 두 버전이 실제로 달라야 하므로, 다른
 // e2e 스펙들이 공유하는 dist/(포트 4173) 를 건드리지 않고 이 테스트 전용의
-// 임시 출력 디렉터리 + 별도 포트로 독립된 빌드/프리뷰를 띄운다. 소스 파일을
-// 잠깐 수정해 재빌드하는 방식은 이 태스크의 다른 수동 검증에서도 써 온
-// 패턴이며, try/finally 로 항상 원복한다.
+// 임시 출력 디렉터리 + 별도 포트로 독립된 빌드/프리뷰를 띄운다. 두 번째 빌드의
+// 차이는 RIMI_DEPLOY_MARKER 환경 변수로만 만든다 — 추적 대상 파일은 물론
+// 저장소 안의 어떤 파일도 쓰지 않는다(vite.config.ts 의 deployMarkerPlugin 참고).
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4199;
 const BASE = `http://localhost:${PORT}`;
-const MAIN_TS_PATH = join(ROOT, 'src/main.ts');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -56,21 +56,18 @@ test('여러 탭이 열려 있을 때, 동의하지 않은 다른 탭은 리로�
     await textareaB.fill(workInProgress);
     await expect(textareaB).toHaveValue(workInProgress);
 
-    // "배포" 시뮬레이션: 소스를 건드려 재빌드해서 이전과 다른 청크를 만든다.
-    const original = readFileSync(MAIN_TS_PATH, 'utf8');
+    // "배포" 시뮬레이션: 이전과 다른 청크를 만들어야 service worker 가 업데이트를
+    // 감지한다. 예전에는 src/main.ts 를 덮어쓰고 finally 로 되돌렸는데, 동시
+    // 실행에서 원복이 깨져 통과를 보고하면서도 추적 대상 소스에 마커가 영구히
+    // 남았다(--repeat-each=2 --workers=2 로 재현). 이제는 파일을 전혀 쓰지 않고,
+    // 이 빌드에만 환경 변수를 넘겨 vite.config.ts 의 deployMarkerPlugin 이
+    // 마커를 주입하게 한다 — 디스크에 남는 것이 없으니 동시 실행에서도 안전하다.
     const marker = 'multitab-test-marker';
-    try {
-      writeFileSync(
-        MAIN_TS_PATH,
-        original.replace(
-          "window.addEventListener('hashchange', () => void render());",
-          `window.addEventListener('hashchange', () => void render());\ndocument.documentElement.dataset['deployMarker'] = '${marker}';`,
-        ),
-      );
-      execSync(`npx vite build --outDir ${outDir}`, { cwd: ROOT, stdio: 'pipe' });
-    } finally {
-      writeFileSync(MAIN_TS_PATH, original);
-    }
+    execSync(`npx vite build --outDir ${outDir}`, {
+      cwd: ROOT,
+      stdio: 'pipe',
+      env: { ...process.env, RIMI_DEPLOY_MARKER: marker },
+    });
 
     let navA = 0;
     let navB = 0;

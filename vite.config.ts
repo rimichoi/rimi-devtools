@@ -1,9 +1,41 @@
 // vitest 의 test 필드를 쓰므로 'vite' 가 아니라 'vitest/config' 에서 가져온다
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+import process from 'node:process';
+
+/**
+ * e2e/pwa-multitab.spec.ts 전용 빌드 시점 주입.
+ *
+ * 그 스펙은 "배포 전/후로 번들이 실제로 달라야" 성립한다(그래야 service worker
+ * 가 업데이트를 감지하고 토스트가 뜬다). 예전에는 그걸 위해 추적 대상 소스인
+ * src/main.ts 를 직접 덮어쓰고 finally 에서 되돌렸는데, 동시 실행에서 원복이
+ * 깨진다: 인스턴스 1이 깨끗한 원본을 읽고 마커를 쓴 뒤 인스턴스 2가 "마커가
+ * 박힌 내용"을 원본으로 읽어 두고, 나중에 그걸 다시 써 넣는다. 실제로
+ * `--repeat-each=2 --workers=2` 로 재현했다 — 테스트는 "2 passed" 를 보고하면서
+ * src/main.ts 에 마커 한 줄을 영구히 남겼다. 통과한 테스트가 워킹트리를
+ * 오염시키면 누군가 그대로 커밋한다.
+ *
+ * 그래서 파일을 아예 쓰지 않는 방식으로 바꿨다. 환경 변수가 있을 때만 이
+ * 플러그인이 존재하므로 프로덕션 빌드 산출물은 전혀 달라지지 않고, 디스크에
+ * 쓰는 것이 없으니 동시 실행에서도 안전하다.
+ */
+function deployMarkerPlugin(marker: string): Plugin {
+  return {
+    name: 'rimi-deploy-marker',
+    transform(code: string, id: string) {
+      if (!id.endsWith('/src/main.ts')) return null;
+      // 부수 효과가 있는 문장이라 minify 에도 살아남고, main.ts 의 내용이
+      // 달라지므로 청크 해시와 precache 매니페스트(sw.js)까지 함께 바뀐다.
+      return `${code}\ndocument.documentElement.dataset['deployMarker'] = ${JSON.stringify(marker)};\n`;
+    },
+  };
+}
+
+const deployMarker = process.env['RIMI_DEPLOY_MARKER'];
 
 export default defineConfig({
   plugins: [
+    ...(deployMarker ? [deployMarkerPlugin(deployMarker)] : []),
     VitePWA({
       // 'autoUpdate' 는 vite-plugin-pwa 가 onNeedRefresh 를 아예 배선하지 않고
       // activated 시점에 조용히 location.reload() 를 강제한다 — 작업 중이던
