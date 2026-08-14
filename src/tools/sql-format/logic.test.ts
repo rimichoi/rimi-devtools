@@ -31,10 +31,14 @@ describe('formatSql', () => {
   });
 
   it('Oracle 방언을 처리한다', () => {
-    const r = formatSql('select a from dual', 'plsql', 'upper');
+    // LEVEL은 Oracle(plsql) 전용 키워드. 표준 SQL(sql)에서는 일반 식별자다.
+    // plsql 방언: LEVEL은 대문자로, CONNECT BY는 새 줄에 들어간다.
+    // sql 방언: level은 소문자, CONNECT BY는 한 줄에 붙는다.
+    const r = formatSql('select level from dual connect by level <= 3', 'plsql', 'upper');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value).toContain('FROM');
+    expect(r.value).toContain('LEVEL');
+    expect(r.value).toContain('CONNECT BY');
   });
 
   it('빈 입력은 에러다', () => {
