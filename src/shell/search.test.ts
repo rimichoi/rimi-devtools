@@ -42,6 +42,19 @@ describe('searchTools', () => {
     expect(result[0]?.id).toBe('json-format');
   });
 
+  it('id/이름이 접두로 일치하면, registry 순서가 뒤라도 중간에 포함만 된 도구보다 위로 올린다', () => {
+    // rankTools[0] 은 id 중간에 'sql' 을 포함할 뿐이라 60점(부분 포함), rankTools[1] 은
+    // id 가 'sql' 로 시작해 80점(접두)이다. registry 순서만으로 정렬한다면(또는 점수
+    // 체계 자체가 없다면) index 0 인 my-sql-tool 이 먼저 나와야 하지만, 점수 티어가
+    // 실제로 동작한다면 접두 매치인 sql-format 이 먼저 나와야 한다.
+    const rankTools = [
+      make('my-sql-tool', '기타 도구', []),
+      make('sql-format', 'SQL 포맷', []),
+    ];
+    const result = searchTools(rankTools, 'sql');
+    expect(result.map((t) => t.id)).toEqual(['sql-format', 'my-sql-tool']);
+  });
+
   it('공백을 무시한다', () => {
     expect(searchTools(tools, '  epoch  ').map((t) => t.id)).toEqual(['epoch']);
   });

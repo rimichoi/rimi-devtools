@@ -7,6 +7,31 @@
   --error: #dc2626;
   --warn: #b45309;
   --surface: #f9fafb;
+  --on-accent: #ffffff;
+  color-scheme: light;
+}
+
+/*
+ * 저장된 테마 선택이 없는 사용자를 위한 첫 페인트 기본값이다. main.ts 의
+ * applyTheme() 은 저장값이 있을 때만(또는 부팅 시 한 번) data-theme 속성을 붙이는데,
+ * 그 스크립트가 실행되기 전까지는 이 CSS 만으로 화면이 그려진다. 이 블록이 없으면
+ * 시스템이 다크인데 저장값이 없는 사용자는 스크립트가 도착하기 전까지 흰 화면을 본다.
+ * data-theme='light' 를 저장해 명시적으로 라이트를 고른 사용자에게는 이 블록을
+ * 적용하지 않는다(:not 가드) — 저장값이 시스템 설정보다 우선해야 한다.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #111317;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #2a2f3a;
+    --accent: #60a5fa;
+    --error: #f87171;
+    --warn: #fbbf24;
+    --surface: #191c22;
+    --on-accent: #111317;
+    color-scheme: dark;
+  }
 }
 
 :root[data-theme='dark'] {
@@ -18,6 +43,8 @@
   --error: #f87171;
   --warn: #fbbf24;
   --surface: #191c22;
+  --on-accent: #111317;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -55,7 +82,7 @@ textarea, input, select, button {
 .sidebar-heading { font-size: 11px; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; }
 .sidebar-link { display: block; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
 .sidebar-link:hover { background: var(--surface); }
-.sidebar-link.is-active { background: var(--accent); color: #fff; }
+.sidebar-link.is-active { background: var(--accent); color: var(--on-accent); }
 
 .io-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .io-output-head { display: flex; justify-content: space-between; align-items: center; }
@@ -92,5 +119,9 @@ textarea, input, select, button {
 .palette-box input { width: 100%; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 14px; font-size: 15px; }
 .palette-box input:focus { outline: none; }
 .palette-list { max-height: 320px; overflow-y: auto; }
-.palette-row { padding: 10px 14px; cursor: pointer; font-size: 14px; }
-.palette-row.is-cursor { background: var(--accent); color: #fff; }
+.palette-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; font-size: 14px; }
+.palette-row.is-cursor { background: var(--accent); color: var(--on-accent); }
+.palette-row-name { flex: 1; }
+.palette-star { background: none; border: none; padding: 0 2px; border-radius: 4px; font-size: 14px; line-height: 1; cursor: pointer; color: inherit; }
+
+body.no-scroll { overflow: hidden; }

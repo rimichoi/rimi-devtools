@@ -126,6 +126,12 @@ describe('prefs.getFavorites / toggleFavorite', () => {
     const prefs = await loadPrefs();
     expect(prefs.getFavorites()).toEqual([]);
   });
+
+  it('배열 안에 문자열이 아닌 원소가 섞여 있으면 그 원소만 걸러낸다', async () => {
+    storage.setItem('rdt.favorites', JSON.stringify(['json-format', 123, null, 'epoch']));
+    const prefs = await loadPrefs();
+    expect(prefs.getFavorites()).toEqual(['json-format', 'epoch']);
+  });
 });
 
 describe('prefs.getRecent / pushRecent', () => {
@@ -166,5 +172,11 @@ describe('prefs.getRecent / pushRecent', () => {
     const prefs = await loadPrefs();
     expect(() => prefs.pushRecent('json-format')).not.toThrow();
     expect(prefs.getRecent()).toEqual(['json-format']);
+  });
+
+  it('배열 안에 문자열이 아닌 원소가 섞여 있으면 그 원소만 걸러낸다', async () => {
+    storage.setItem('rdt.recent', JSON.stringify(['epoch', 42, null, 'base64']));
+    const prefs = await loadPrefs();
+    expect(prefs.getRecent()).toEqual(['epoch', 'base64']);
   });
 });
