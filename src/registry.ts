@@ -29,6 +29,13 @@ export const tools: Tool[] = [
     category: 'calc',
     load: () => import('./tools/percent/index').then((m) => m.default),
   },
+  {
+    id: 'epoch',
+    name: 'Epoch 변환',
+    keywords: ['epoch', 'unix', '타임스탬프', 'timestamp', '시간', '변환', 'utc', 'kst'],
+    category: 'convert',
+    load: () => import('./tools/epoch/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
