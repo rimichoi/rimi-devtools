@@ -57,9 +57,47 @@ test('precache 매칭 로직은 접두어가 겹치는 도구 id 를 혼동하�
   expect(hasChunkForId('json-diff', ids, ['unrelated-Xy12.js'])).toBe(false);
 });
 
-test('오프라인 상태에서, 온라인 중 방문하지 않은 도구도 마운트된다', async ({ page, context }) => {
-  // 온라인으로는 기본 경로(첫 번째 도구)만 연다. 나머지 9개는 이 세션에서
-  // 한 번도 온라인으로 열리지 않은 채로 오프라인 전환 후 마운트를 시도한다.
+test('첫 방문 세션에서, 리로드 없이도 오프라인 전환 후 방문하지 않은 도구가 마운트된다', async ({
+  page,
+  context,
+}) => {
+  // 이게 이 태스크가 존재하는 이유의 핵심 경로다 — "설치하고 바로 오프라인이
+  // 되는" 시나리오는 리로드를 거치지 않는다. clientsClaim 없이는 SW 를 막
+  // 설치한 이 페이지 자신이 uncontrolled 로 남아, 여기서 리로드를 먼저 해서
+  // controlled 상태를 만들어버리면 그 결함을 구조적으로 못 본다. 그래서
+  // 여기서는 절대 page.reload() 를 하지 않는다.
+  await page.goto('/');
+  await expect(page.locator('#tool-root[data-tool]')).toBeVisible();
+  const firstVisited = await page.getAttribute('#tool-root', 'data-tool');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+
+  // clientsClaim 이 없으면 이 시점에 controller 가 null 로 남는다(실측으로
+  // 확인된 회귀의 근본 원인). 이 단언이 실패하면 아래 마운트 검증까지 갈
+  // 것도 없이 원인이 바로 드러난다.
+  const controllerScriptURL = await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? null);
+  expect(controllerScriptURL, '첫 방문 세션의 이 탭 자신도 SW 의 컨트롤을 받아야 한다').not.toBeNull();
+
+  await context.setOffline(true);
+
+  for (const id of TOOL_IDS) {
+    if (id === firstVisited) continue;
+
+    await page.evaluate((toolId) => {
+      location.hash = `#/${toolId}`;
+    }, id);
+
+    await expect(page.locator(`#tool-root[data-tool="${id}"]`)).toBeVisible();
+    await expect(page.locator('#tool-root')).not.toBeEmpty();
+  }
+
+  await context.setOffline(false);
+});
+
+test('오프라인 하드 리로드 후에도 방문하지 않은 도구가 마운트된다', async ({ page, context }) => {
+  // 위 테스트와 별개로, "탭을 닫았다 다시 열거나 새로고침하는" 흔한 경로도
+  // 계속 지킨다.
   await page.goto('/');
   await expect(page.locator('#tool-root[data-tool]')).toBeVisible();
   const firstVisited = await page.getAttribute('#tool-root', 'data-tool');
@@ -69,7 +107,6 @@ test('오프라인 상태에서, 온라인 중 방문하지 않은 도구도 마
 
   await context.setOffline(true);
 
-  // 오프라인 하드 리로드로 앱 셸이 뜨는지 먼저 확인한다.
   await page.reload();
   await expect(page.locator('#tool-root[data-tool]')).toBeVisible();
 

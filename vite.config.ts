@@ -41,19 +41,21 @@ export default defineConfig({
         // 'prompt' 이므로 플러그인도 이 값을 자동으로 켜지 않는다(자동 설정은
         // registerType 'autoUpdate' 일 때만 적용됨).
         //
-        // clientsClaim 도 켜지 않는다(한 라운드 전엔 켰다가 뺐다) — 이게 켜져
-        // 있으면 어느 한 탭이 skipWaiting 메시지를 보내는 순간 "열려 있는 모든
-        // 탭"의 controller 가 즉시 바뀐다. vite-plugin-pwa 는 controller 가
-        // 바뀌는 모든 탭에서 무조건 location.reload() 를 거는 리스너를 토스트를
-        // 띄우는 시점에 걸어두는데, 그 탭이 실제로 "새로고침"을 눌렀는지는
-        // 전혀 보지 않는다. 그 결과 clientsClaim 을 켠 채로 실측했을 때 —
-        // 탭 A 에서 새로고침을 누르면 아무것도 누르지 않은 탭 B 가 예고 없이
-        // 리로드되며 입력이 소실됐다(탭 B 가 토스트를 닫아도 막지 못함).
-        // 1차 리뷰가 blocking 으로 지목한 피해가 다중 탭에서 그대로 재현된
-        // 셈이라 뺀다. clientsClaim 없이도 "새로고침"을 누른 탭 자신은
-        // updateToast.ts 가 해당 waiting worker 의 statechange 를 직접
-        // 기다렸다가 스스로 reload() 하므로(일반 네비게이션은 clientsClaim 과
-        // 무관하게 그 시점의 active worker 를 그대로 쓴다) 정상 동작한다.
+        // clientsClaim 은 다시 켠다 — 한 라운드 전엔 이게 다중 탭 강제 리로드의
+        // 원인으로 보여 뺐었다. 그런데 부분 되돌리기로 확인한 결과, 다중 탭
+        // 강제 리로드를 실제로 막는 건 registerSW() 에 넘기는 onNeedReload
+        // no-op(updateToast.ts) 한 줄이었고, clientsClaim 제거는 거기 기여하는
+        // 바 없이 대가만 치렀다: clientsClaim 이 없으면 SW 를 설치한 바로 그
+        // 첫 방문 세션 내내 그 탭 자신이 uncontrolled 로 남는다 — precache 에
+        // 22개 엔트리가 다 있어도 그 탭은 SW 캐시를 못 쓴다. "설치하고 바로
+        // 오프라인이 되는" 시나리오(이 태스크가 존재하는 이유 자체)에서, 아직
+        // 열지 않은 도구로 이동하면 동적 import 가 네트워크로 나가려다 실패해
+        // 조용히 빈 화면이 된다(실측 확인). clientsClaim 을 켜면 SW 가
+        // 활성화되는 즉시 그 탭 자신도 컨트롤러를 받아 이 문제가 사라지고,
+        // onNeedReload no-op 이 이미 다중 탭 강제 리로드를 막고 있으므로
+        // 두 설정을 함께 켜도 문제 되지 않는다(e2e/pwa-multitab.spec.ts 로
+        // 재확인함).
+        clientsClaim: true,
       },
     }),
   ],

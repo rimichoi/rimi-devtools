@@ -20,6 +20,9 @@ const KNOWN_INERT_URL_PREFIXES = [
   'http://ns.adobe.com/',
   // exifr 라이브러리 자체의 GitHub 저장소 링크 — 에러 메시지/주석에 등장.
   'https://github.com/MikeKovarik/exifr',
+  // icon.svg 의 xmlns 선언. SVG 문서라면 어디든 들어가는 고정 네임스페이스
+  // URI 문자열이지, 실제로 요청되는 주소가 아니다.
+  'http://www.w3.org/2000/svg',
   // rolldown 빌드 런타임 헬퍼가 특정 에러 상황에서 안내하는 문서 링크.
   'https://rolldown.rs/',
   // workbox 런타임(workbox-*.js) 자체가 개발자에게 남기는 console.warn 문구에
@@ -37,14 +40,18 @@ function findUnexpectedExternalUrls(content: string): string[] {
 // workbox 런타임 청크(workbox-<hash>.js) 는 dist 루트에 생기는데, 이 태스크가
 // 새로 만든 파일이자 네트워크에 직접 말을 거는 파일이라 여기가 빠지면 가드가
 // 아니다 — workbox.runtimeCaching 에 외부 CDN URL 을 넣는 실수가 그대로 통과해
-// 버린다.
-function listJsAndCssFilesRecursively(dir: string): string[] {
+// 버린다. manifest.webmanifest 도 마찬가지다 — 아이콘 URL 은 문자열이 아니라
+// 설치 프롬프트/홈 화면 추가 시 브라우저가 실제로 가져오는 주소다. icon.svg
+// 도 파일 내부에 외부 이미지 참조(<image href>)가 섞여 들어올 수 있는 자리라
+// 함께 스캔한다(다만 SVG 의 xmlns 네임스페이스 URI 는 예외 목록에서 걸러야
+// 한다 — 위 KNOWN_INERT_URL_PREFIXES 참고).
+function listScannableFilesRecursively(dir: string): string[] {
   const result: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      result.push(...listJsAndCssFilesRecursively(fullPath));
-    } else if (/\.(js|css)$/.test(entry.name)) {
+      result.push(...listScannableFilesRecursively(fullPath));
+    } else if (/\.(js|css|webmanifest|svg)$/.test(entry.name)) {
       result.push(fullPath);
     }
   }
@@ -105,20 +112,26 @@ for (const id of TOOL_IDS) {
   });
 }
 
-test('빌드 산출물(index.html + JS/CSS 청크 전체)에 외부 호스트 URL 이 없다', async ({ request }) => {
+test('빌드 산출물(index.html, JS/CSS 청크, sw.js, manifest.webmanifest, 아이콘)에 외부 호스트 URL 이 없다', async ({
+  request,
+}) => {
   // index.html 은 실제로 서빙되는 응답을 확인한다.
   const html = await (await request.get('/')).text();
   expect(html).not.toMatch(EXTERNAL_URL_PATTERN);
 
   // 하지만 유출 벡터는 대부분 손으로 쓴 20줄짜리 index.html 이 아니라 도구
-  // 코드가 번들된 JS 청크 쪽에 있다(엔드포인트 상수, CDN 폰트 URL 등). dist/
-  // 를 통째로(assets/ 와 루트의 sw.js, workbox-*.js 까지) 재귀로 읽어서
+  // 코드가 번들된 JS 청크, service worker, manifest 쪽에 있다(엔드포인트
+  // 상수, CDN 폰트 URL, 외부 아이콘 URL 등). dist/ 를 통째로 재귀로 읽어서
   // 스캔해야 이 테스트의 이름이 실제 검사 범위와 맞는다.
-  const assetFiles = listJsAndCssFilesRecursively(DIST_DIR);
-  expect(assetFiles.length, 'dist 에 JS/CSS 산출물이 있어야 한다').toBeGreaterThan(0);
+  const assetFiles = listScannableFilesRecursively(DIST_DIR);
+  expect(assetFiles.length, 'dist 에 스캔 대상 산출물이 있어야 한다').toBeGreaterThan(0);
   expect(
     assetFiles.some((f) => f.endsWith('sw.js')),
     'dist/sw.js 가 스캔 대상에 포함돼야 한다',
+  ).toBe(true);
+  expect(
+    assetFiles.some((f) => f.endsWith('.webmanifest')),
+    'dist/manifest.webmanifest 가 스캔 대상에 포함돼야 한다',
   ).toBe(true);
 
   const offenders: string[] = [];

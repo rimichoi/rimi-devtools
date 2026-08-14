@@ -25,14 +25,16 @@ export function setupUpdatePrompt(): void {
     },
     // 플러그인 기본 동작은, 어느 탭이든 controller 가 바뀌는(controllerchange)
     // 순간 무조건 window.location.reload() 를 부른다 — "이 탭에서 사용자가
-    // 새로고침을 눌렀는지"는 전혀 확인하지 않는다. clientsClaim 을 켜둔 채
-    // 실측했을 때, 탭 A 에서 새로고침을 누르면 아무것도 누르지 않은 탭 B 가
-    // 예고 없이 리로드되며 입력이 소실되는 걸 확인했다(1차 리뷰 blocking 과
-    // 동일한 피해). vite.config.ts 에서 clientsClaim 을 뺐으므로 이제 다른
-    // 탭의 controller 가 저절로 바뀌는 일 자체가 없지만, 방어적으로 이 콜백을
-    // no-op 으로 넘겨 플러그인의 자동 리로드 경로를 완전히 죽인다. 실제
-    // 리로드는 아래 showRefreshToast 의 클릭 핸들러가 전담한다 — 사용자가
-    // "새로고침"을 누른 바로 그 탭에서만 일어난다.
+    // 새로고침을 눌렀는지"는 전혀 확인하지 않는다. clientsClaim 이 켜져 있으면
+    // 어느 한 탭이 skipWaiting 메시지를 보내는 순간 열려 있는 모든 탭의
+    // controller 가 바뀌므로, 이 콜백을 no-op 으로 넘기지 않으면 아무것도
+    // 누르지 않은 다른 탭까지 예고 없이 리로드되며 입력이 소실된다(실측
+    // 확인). vite.config.ts 는 첫 방문 세션의 오프라인 보장을 위해
+    // clientsClaim 을 켜둬야 하므로(주석 참고), 이 no-op 이 다중 탭 강제
+    // 리로드를 막는 유일하고도 충분한 방어선이다 — 실제 리로드는 아래
+    // showRefreshToast 의 클릭 핸들러가 전담한다(사용자가 "새로고침"을 누른
+    // 바로 그 탭에서만 일어난다). e2e/pwa-multitab.spec.ts 가 이 조합으로도
+    // 다른 탭이 리로드되지 않음을 검증한다.
     onNeedReload() {},
   });
 }
@@ -71,21 +73,26 @@ function showRefreshToast(onClick: () => void): void {
 }
 
 // "새로고침" 을 누른 이 탭에서만 리로드를 건다. navigator.serviceWorker 의
-// 전역 controllerchange 는 clientsClaim 이 없는 한 이미 컨트롤링 중인 탭에서는
-// 발화하지 않으므로 거기에 기대지 않는다. 대신 지금 대기 중인 그 워커
-// 인스턴스(registration.waiting) 자체의 statechange 를 직접 관찰해 activated
-// 가 되는 순간 이 탭만 reload() 한다 — 일반 네비게이션(reload 포함)은
-// clientsClaim 과 무관하게 그 시점에 활성화된 워커를 그대로 컨트롤러로 쓰므로
-// 이걸로 충분하다. 대기 중인 워커가 이미 사라진 상태(예: 다른 탭이 먼저
-// 수락해 이미 활성화된 경우)라면 바로 reload() 한다.
+// 전역 controllerchange 에는 기대지 않는다(다른 탭에도 발화해 N-1 을
+// 재현시킨다). 대신 지금 대기 중인 그 워커 인스턴스(registration.waiting)
+// 자체의 statechange 를 직접 관찰해 activated 가 되는 순간 이 탭만 reload()
+// 한다 — 일반 네비게이션(reload 포함)은 그 시점에 활성화된 워커를 그대로
+// 컨트롤러로 쓰므로 이걸로 충분하다. 대기 중인 워커가 이미 사라진
+// 상태(예: 다른 탭이 먼저 수락해 이미 활성화된 경우)라면 바로 reload() 한다.
+// 그 워커가 activated 대신 redundant 로 끝나는 경우(install 실패, 또는 더
+// 새 업데이트에 밀려 폐기됨)도 리스너를 정리하고 reload() 한다 — 그러지
+// 않으면 Promise 가 영원히 안 풀려 "새로고침" 버튼이 아무 반응도 없는
+// 것처럼 보인다. 사용자가 명시적으로 새로고침을 요청했으므로, 그 워커가
+// 결국 활성화되지 못했더라도 reload() 자체는 항상 안전하다(그 시점의
+// active 워커로 새로 고쳐질 뿐이다).
 async function reloadOnceThisTabsUpdateActivates(): Promise<void> {
   const registration = await navigator.serviceWorker.getRegistration();
   const waiting = registration?.waiting;
 
-  if (waiting && waiting.state !== 'activated') {
+  if (waiting && waiting.state !== 'activated' && waiting.state !== 'redundant') {
     await new Promise<void>((resolve) => {
       const onStateChange = () => {
-        if (waiting.state === 'activated') {
+        if (waiting.state === 'activated' || waiting.state === 'redundant') {
           waiting.removeEventListener('statechange', onStateChange);
           resolve();
         }
