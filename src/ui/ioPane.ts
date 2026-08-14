@@ -83,9 +83,13 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     }
   }
 
+  const controlListeners = new Map<HTMLElement, (e: Event) => void>();
+
   input.addEventListener('input', run);
   for (const control of options.controls ?? []) {
-    control.addEventListener('change', run);
+    const listener = run as unknown as (e: Event) => void;
+    control.addEventListener('change', listener);
+    controlListeners.set(control, listener);
   }
 
   return {
@@ -95,6 +99,9 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     },
     run,
     destroy() {
+      for (const [control, listener] of controlListeners) {
+        control.removeEventListener('change', listener);
+      }
       wrap.remove();
     },
   };
