@@ -19,6 +19,13 @@ import { createCopyButton } from './copyButton';
  *     방향 select 가 반드시 따라붙는데, 그건 사용자가 아무것도 하기 전에 먼저
  *     대답해야 하는 질문이다. `secondInput` 은 이 자리에 맞지 않는다 — 그건
  *     "입력 둘 → 출력 하나"이지 "서로를 갱신하는 짝"이 아니다.
+ *  5. 대량 텍스트 한 덩어리 → 여러 필드로 구조화된 결과: 입력은 이 파일의 입력
+ *     카드(`output: false`), 결과는 정의 목록(`resultList.ts`). 2번과 같은 이유로
+ *     결과를 문자열로 뭉쳐 textarea 에 넣지 않고, 입력만은 3번의 dropZone 처럼
+ *     자기 몫의 공용 컴포넌트를 쓴다. 글자수 세기가 여기다 — 결과가 통계 묶음 둘 +
+ *     발견 목록 둘이라, 한 덩어리 텍스트로 뭉치면 세 가지 "글자수" 가 왜 다른지도
+ *     보이지 않는 문자를 몇 개 찾았는지도 읽히지 않는다. 새 컴포넌트를 만들지
+ *     않는다: 입력 카드와 ResultList 를 그대로 조합한다.
  */
 export interface TransformOutput {
   text: string;
@@ -26,12 +33,17 @@ export interface TransformOutput {
   warning?: string;
 }
 
-export interface IOPaneOptions {
+interface IOPaneBaseOptions {
   inputLabel?: string;
-  outputLabel?: string;
   placeholder?: string;
   /** 입력창 위에 놓을 컨트롤 (셀렉트, 체크박스 등) */
   controls?: HTMLElement[];
+}
+
+export interface IOPaneTransformOptions extends IOPaneBaseOptions {
+  /** 결과 카드를 이 컴포넌트가 그린다(기본). */
+  output?: true;
+  outputLabel?: string;
   /**
    * 두 번째로 편집 가능한 텍스트 입력이 필요한 도구용(예: JSON 비교의 왼쪽/오른쪽).
    * 지정하면 pane 이 입력 두 개 + 결과 3열이 되고, 두 입력 중 하나라도 비어 있는
@@ -41,6 +53,23 @@ export interface IOPaneOptions {
   secondInput?: { label?: string; placeholder?: string };
   transform: (input: string, secondInput?: string) => ToolResult<TransformOutput>;
 }
+
+/**
+ * 결과를 다른 컴포넌트(ResultList 등)가 그리는 경우. `numberForm.ts` 의
+ * `result: false` 와 같은 이유로 둔다 — 결과 카드를 그대로 두면 아무도 채우지
+ * 않는 상자가 입력과 진짜 결과 사이에 끼어 "결과가 여기에 표시됩니다" 를 계속
+ * 띄운다(바로 아래에 결과가 이미 나와 있는데도).
+ *
+ * `transform` 대신 `onInput` 을 받는다: 결과를 이 컴포넌트가 그리지 않으므로
+ * 돌려줄 값이 없다. 빈 입력에서도 부른다 — 입력을 지웠을 때 도구가 자기 결과를
+ * 되돌릴 기회를 잃지 않도록.
+ */
+export interface IOPaneInputOnlyOptions extends IOPaneBaseOptions {
+  output: false;
+  onInput: (input: string) => void;
+}
+
+export type IOPaneOptions = IOPaneTransformOptions | IOPaneInputOnlyOptions;
 
 export interface IOPaneHandle {
   setInput(text: string): void;
@@ -60,8 +89,11 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     wrap.append(bar);
   }
 
+  const inputOnly = options.output === false;
+  const secondSpec = options.output === false ? undefined : options.secondInput;
+
   const pane = document.createElement('div');
-  pane.className = options.secondInput ? 'io-pane io-pane-3col' : 'io-pane';
+  pane.className = inputOnly ? 'io-pane io-pane-1col' : secondSpec ? 'io-pane io-pane-3col' : 'io-pane';
 
   const inputBox = document.createElement('div');
   const inputLabel = document.createElement('label');
@@ -73,43 +105,58 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
 
   let secondBox: HTMLDivElement | undefined;
   let secondInputEl: HTMLTextAreaElement | undefined;
-  if (options.secondInput) {
+  if (secondSpec) {
     secondBox = document.createElement('div');
     const secondLabel = document.createElement('label');
-    secondLabel.textContent = options.secondInput.label ?? '입력 2';
+    secondLabel.textContent = secondSpec.label ?? '입력 2';
     secondInputEl = document.createElement('textarea');
-    secondInputEl.placeholder = options.secondInput.placeholder ?? '';
+    secondInputEl.placeholder = secondSpec.placeholder ?? '';
     secondInputEl.spellcheck = false;
     secondBox.append(secondLabel, secondInputEl);
   }
 
-  const outputBox = document.createElement('div');
-  const outputHead = document.createElement('div');
-  outputHead.className = 'io-output-head';
-  const outputLabel = document.createElement('label');
-  outputLabel.textContent = options.outputLabel ?? '결과';
-  const output = document.createElement('textarea');
-  output.readOnly = true;
-  output.spellcheck = false;
-  // 아무것도 입력하지 않은 출력창은 지금까지 그냥 빈 상자였고, 기다리는 중인지
-  // 고장난 것인지 구분할 수 없었다. 빈 상태 문구는 CSS 로는 만들 수 없다 —
-  // textarea 는 대체 요소라 ::before/content 가 렌더되지 않고, ::placeholder 는
-  // placeholder 속성이 실제로 있어야 그릴 것이 생긴다.
-  output.placeholder = '결과가 여기에 표시됩니다.';
-  outputHead.append(outputLabel, createCopyButton(() => output.value));
-  outputBox.append(outputHead, output);
+  let outputBox: HTMLDivElement | undefined;
+  let output: HTMLTextAreaElement | undefined;
+  let error: HTMLDivElement | undefined;
+  let warn: HTMLDivElement | undefined;
+  if (!inputOnly) {
+    outputBox = document.createElement('div');
+    const outputHead = document.createElement('div');
+    outputHead.className = 'io-output-head';
+    const outputLabel = document.createElement('label');
+    outputLabel.textContent = options.outputLabel ?? '결과';
+    output = document.createElement('textarea');
+    output.readOnly = true;
+    output.spellcheck = false;
+    // 아무것도 입력하지 않은 출력창은 지금까지 그냥 빈 상자였고, 기다리는 중인지
+    // 고장난 것인지 구분할 수 없었다. 빈 상태 문구는 CSS 로는 만들 수 없다 —
+    // textarea 는 대체 요소라 ::before/content 가 렌더되지 않고, ::placeholder 는
+    // placeholder 속성이 실제로 있어야 그릴 것이 생긴다.
+    output.placeholder = '결과가 여기에 표시됩니다.';
+    const outputEl = output;
+    outputHead.append(outputLabel, createCopyButton(() => outputEl.value));
+    outputBox.append(outputHead, output);
 
-  const error = document.createElement('div');
-  error.className = 'io-error';
-  const warn = document.createElement('div');
-  warn.className = 'io-warn';
-  outputBox.append(error, warn);
+    error = document.createElement('div');
+    error.className = 'io-error';
+    warn = document.createElement('div');
+    warn.className = 'io-warn';
+    outputBox.append(error, warn);
+  }
 
-  pane.append(inputBox, ...(secondBox ? [secondBox] : []), outputBox);
+  pane.append(inputBox, ...(secondBox ? [secondBox] : []), ...(outputBox ? [outputBox] : []));
   wrap.append(pane);
   root.append(wrap);
 
   function run(): void {
+    // 결과를 다른 컴포넌트가 그리는 경우. 빈 입력에서도 부른다 — 도구가 자기
+    // 결과를 빈 상태로 되돌릴 기회를 잃으면 지운 입력의 결과가 화면에 남는다.
+    if (options.output === false) {
+      options.onInput(input.value);
+      return;
+    }
+    if (!output || !error || !warn) return;
+
     error.textContent = '';
     warn.textContent = '';
 

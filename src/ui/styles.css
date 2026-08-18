@@ -548,6 +548,18 @@ input[type='checkbox']:checked::before {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
+/* 결과를 ResultList 가 그리는 경우(ioPane 의 output:false). 입력 카드 하나뿐이라
+ * 2열 격자에 남기면 화면 절반이 비고, 아래에 이어지는 결과 패널들과 폭이 어긋난다. */
+.io-pane.io-pane-1col {
+  grid-template-columns: 1fr;
+}
+
+/* 이 모양에서는 입력 아래에 결과 패널이 이어진다. 입력이 56vh 를 차지하면 결과가
+ * 항상 화면 밖에서 시작해, 무엇이 나왔는지 보려면 매번 스크롤해야 한다. */
+.io-pane.io-pane-1col textarea {
+  min-height: 26vh;
+}
+
 /*
  * 입력과 출력을 같은 모양의 맨몸 textarea 로 두면 어느 쪽이 무엇인지 아무것도
  * 알려주지 못한다. 둘 다 라벨 스트립을 머리에 얹은 카드로 만들고, 몸통 배경을
@@ -809,6 +821,19 @@ input[type='checkbox']:checked::before {
   border-width: 0;
   border-top: 1px solid var(--border);
   border-radius: 0;
+}
+
+/* 글자수 세기는 ResultList 를 넷 쓴다(기본 통계 / 길이 제한 단위 / EUC-KR 표현
+ * 불가 / 보이지 않는 문자). 세로로만 쌓으면 넷째 패널이 항상 화면 밖이라, 이
+ * 도구에서 가장 값진 검사 결과를 아무도 보지 못한다. 넓으면 나란히 놓는다.
+ * minmax 의 최솟값을 min(…, 100%) 로 감싸는 것은 좁은 화면에서 격자 열이
+ * 컨테이너보다 넓어져 가로 스크롤을 만드는 것을 막기 위함이다. */
+.text-count-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+  min-width: 0;
 }
 
 /* ==========================================================================

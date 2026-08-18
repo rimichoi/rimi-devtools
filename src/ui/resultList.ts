@@ -20,7 +20,15 @@ export interface ResultListOptions {
 }
 
 export interface ResultListHandle {
-  setRows(rows: ResultRow[]): void;
+  /**
+   * 행을 갈아끼운다. `rows` 가 비어 있으면 안내 문구만 남는다.
+   *
+   * `emptyMessage` 는 그 자리에 `emptyHint` 대신 넣을 문구다. "아직 입력이 없다"
+   * 와 "다 훑어봤는데 찾은 것이 없다" 는 사용자에게 전혀 다른 소식인데, 문구가
+   * 하나뿐이면 검사 결과가 깨끗한 경우에도 "여기에 표시됩니다" 라는 대기 문구가
+   * 남아 검사가 돌았는지조차 알 수 없다(글자수 세기의 보이지 않는 문자 검사).
+   */
+  setRows(rows: ResultRow[], emptyMessage?: string): void;
   setError(message: string): void;
   destroy(): void;
 }
@@ -45,9 +53,10 @@ export function createResultList(root: HTMLElement, options: ResultListOptions):
   list.className = 'result-list';
   list.hidden = true;
 
+  const defaultEmptyText = options.emptyHint ?? '결과가 여기에 표시됩니다.';
   const empty = document.createElement('p');
   empty.className = 'result-empty';
-  empty.textContent = options.emptyHint ?? '결과가 여기에 표시됩니다.';
+  empty.textContent = defaultEmptyText;
 
   const error = document.createElement('div');
   error.className = 'io-error';
@@ -56,11 +65,12 @@ export function createResultList(root: HTMLElement, options: ResultListOptions):
   root.append(wrap);
 
   return {
-    setRows(rows: ResultRow[]) {
+    setRows(rows: ResultRow[], emptyMessage?: string) {
       error.textContent = '';
       list.replaceChildren();
 
       if (rows.length === 0) {
+        empty.textContent = emptyMessage ?? defaultEmptyText;
         list.hidden = true;
         empty.hidden = false;
         return;
