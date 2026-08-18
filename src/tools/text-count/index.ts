@@ -2,6 +2,8 @@ import type { ToolModule } from '../../types';
 import { createIOPane } from '../../ui/ioPane';
 import { createResultList, type ResultRow } from '../../ui/resultList';
 import {
+  buildHighlight,
+  HIGHLIGHT_MAX_UNITS,
   countEucKrBytes,
   countText,
   findInvisibleChars,
@@ -29,6 +31,43 @@ const mod: ToolModule = {
      * textarea 에 넣었는데, 그러면 세 가지 "글자수" 가 왜 다른지도, 보이지 않는
      * 문자를 찾았는지도 줄글에 묻혀 읽히지 않았다.
      */
+    /*
+     * 본문 강조 뷰. 결과 목록 넷이 "무엇을 몇 개 찾았는지" 를 말한다면, 이쪽은
+     * "어디에 있는지" 를 좌표가 아니라 눈으로 보여준다 — 유니코드 인스펙터가
+     * 하는 일이다.
+     *
+     * 공용 컴포넌트를 새로 만들지 않는다. ResultList 의 행 값은 문자열이라
+     * 강조 span 을 담을 수 없고, IOPane 의 출력은 textarea 라 자식 요소를 아예
+     * 가질 수 없다. 그래서 exif 의 `.exif-table` 과 같이 도구 안에서만 쓰는
+     * 마크업으로 두되, 카드 껍데기는 이미 있는 `.panel` + `.io-output-head` 를
+     * 그대로 쓴다(패널 언어를 갈라놓지 않는다).
+     *
+     * 보안: 여기 들어오는 것은 사용자가 붙여넣은 임의의 텍스트다. innerHTML /
+     * insertAdjacentHTML / outerHTML 을 **한 번도** 쓰지 않는다 — 아래는 전부
+     * createElement + textContent 다. 그래서 `<img src=x onerror=alert(1)>` 는
+     * 요소가 되지 못하고 글자 그대로 그려진다.
+     */
+    const highlight = document.createElement('section');
+    highlight.className = 'panel text-count-highlight';
+    highlight.hidden = true;
+
+    const highlightHead = document.createElement('div');
+    highlightHead.className = 'io-output-head';
+    const highlightLabel = document.createElement('label');
+    highlightLabel.textContent = '본문에서 찾은 자리';
+    highlightHead.append(highlightLabel);
+
+    const highlightBody = document.createElement('div');
+    highlightBody.className = 'tc-body';
+    // 방향 격리. 마커로 바꾸지 않는 문자 중에도 강한 RTL 문자(히브리·아랍 문자)는
+    // 있고, 격리하지 않으면 그 런이 바깥 UI 문구의 순서까지 끌고 들어간다.
+    highlightBody.dir = 'ltr';
+
+    const highlightNote = document.createElement('div');
+    highlightNote.className = 'io-warn';
+
+    highlight.append(highlightHead, highlightBody, highlightNote);
+
     const results = document.createElement('div');
     results.className = 'text-count-results';
 
@@ -66,6 +105,48 @@ const mod: ToolModule = {
       emptyHint: EMPTY_HINT,
     });
 
+    function clearHighlight(): void {
+      highlight.hidden = true;
+      highlightBody.replaceChildren();
+      highlightNote.textContent = '';
+    }
+
+    /**
+     * 입력을 되돌려 그리되 신고 대상 문자만 눈에 보이는 표시로 바꾼다.
+     *
+     * 세그먼트 하나하나를 span 으로 감싸는 이유는 방향 격리 때문이다. 평문 런과
+     * 마커를 각자 `unicode-bidi: isolate` 상자에 넣으면, 어떤 런이 무슨 문자를
+     * 담고 있든 런들 사이의 순서는 항상 논리 순서 그대로다.
+     */
+    function renderHighlight(text: string): void {
+      const view = buildHighlight(text);
+
+      const frag = document.createDocumentFragment();
+      for (const segment of view.segments) {
+        const span = document.createElement('span');
+        if (segment.kind === 'text') {
+          span.className = 'tc-run';
+          // 문자열 → 텍스트 노드. 마크업으로 해석될 경로가 없다.
+          span.textContent = segment.text;
+        } else {
+          span.className = 'tc-mark';
+          span.dir = 'ltr';
+          span.textContent = segment.mark.label;
+          // 설명은 우리 표에서 나온 값이지 사용자 입력이 아니다.
+          span.title = segment.mark.name === '' ? segment.mark.label : segment.mark.name;
+        }
+        frag.append(span);
+      }
+      highlightBody.replaceChildren(frag);
+
+      highlightNote.textContent =
+        view.omitted > 0
+          ? `너무 길어 앞 ${decimal(HIGHLIGHT_MAX_UNITS)}자(UTF-16 기준)까지만 표시했습니다. ` +
+            `뒤쪽 ${decimal(view.omitted)}자는 표시하지 않았습니다 — 위 목록의 개수와 위치는 전체 기준입니다.`
+          : '';
+      highlight.hidden = false;
+    }
+
     function reset(): void {
       basicRows = [];
       unitRows = [];
@@ -75,6 +156,7 @@ const mod: ToolModule = {
       units.setRows(unitRows);
       eucKr.setRows(eucKrRows);
       invisible.setRows(invisibleRows);
+      clearHighlight();
     }
 
     /*
@@ -143,11 +225,17 @@ const mod: ToolModule = {
         eucKr.setRows(eucKrRows, '모든 문자를 EUC-KR 로 표현할 수 있습니다.');
       }
 
-      invisibleRows = findInvisibleChars(text).map((finding) => ({
+      const findings = findInvisibleChars(text);
+      invisibleRows = findings.map((finding) => ({
         label: finding.label,
         value: formatFinding(finding),
       }));
       invisible.setRows(invisibleRows, '보이지 않는 문자나 제어문자가 없습니다.');
+
+      // 보여줄 것이 있을 때만 보여준다. 깨끗한 텍스트에서는 원문을 한 번 더
+      // 그려 놓은 상자가 아니라 "없습니다" 한 줄이 답이다.
+      if (findings.length === 0) clearHighlight();
+      else renderHighlight(text);
     }
 
     const pane = createIOPane(root, {
@@ -157,7 +245,7 @@ const mod: ToolModule = {
       onInput: update,
     });
 
-    root.append(results);
+    root.append(highlight, results);
 
     return () => {
       pane.destroy();
@@ -165,6 +253,7 @@ const mod: ToolModule = {
       units.destroy();
       eucKr.destroy();
       invisible.destroy();
+      highlight.remove();
       results.remove();
     };
   },

@@ -206,3 +206,171 @@ test('EUC-KR 역방향 표를 만드는 데 드는 시간은 첫 입력 한 번�
     timing.first / 5,
   );
 });
+
+/* ==========================================================================
+ * 본문 강조 뷰 \u2014 찾은 문자를 "있던 자리에" 보여주기
+ *
+ * 좌표(`1줄 6칸`)는 사람이 다시 세어 찾아야 한다. 이 뷰는 입력을 되돌려 그리되
+ * 신고 대상 문자만 눈에 보이는 표시로 바꾼다.
+ *
+ * 여기 있는 단언 중 절반은 보안이다. 이 상자에 들어오는 것은 사용자가 붙여넣은
+ * 임의의 텍스트이고, 이런 도구에 붙여넣어지는 것에는 반드시 공격 payload 가
+ * 섞인다.
+ *
+ * 위쪽 파일 머리말과 같은 이유로 대상 문자는 전부 \uXXXX 로 적는다 \u2014 특히
+ * U+2028/U+2029 는 JS 소스에서 줄바꿈으로 취급돼 리터럴로 적으면 이 파일 자체가
+ * 파싱되지 않는다.
+ * ========================================================================== */
+
+const ZWSP = '\u200B';
+const NBSP = '\u00A0';
+const LS = '\u2028';
+const PS = '\u2029';
+const RLO = '\u202E';
+
+function highlight(page: Page) {
+  return page.locator('#tool-root .text-count-highlight');
+}
+
+function body(page: Page) {
+  return highlight(page).locator('.tc-body');
+}
+
+test('보이지 않는 문자를 본문에서 있던 자리에 표시한다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await input(page).fill(`a${ZWSP}b${NBSP}c`);
+
+  await expect(highlight(page)).toBeVisible();
+  // 평문 런과 마커가 원래 순서 그대로 번갈아 나온다 \u2014 목록의 좌표를 세지 않아도
+  // 어디에 있었는지가 보인다.
+  await expect(body(page).locator('span')).toHaveText(['a', 'U+200B', 'b', 'U+00A0', 'c']);
+  await expect(body(page).locator('.tc-mark')).toHaveText(['U+200B', 'U+00A0']);
+  // 마커는 무슨 문자인지 말한다.
+  await expect(body(page).locator('.tc-mark').nth(0)).toHaveAttribute('title', '제로폭 공백 (ZWSP)');
+  await expect(body(page).locator('.tc-mark').nth(1)).toHaveAttribute(
+    'title',
+    '줄바꿈 없는 공백 (NBSP)',
+  );
+});
+
+test('깨끗한 텍스트에서는 강조 뷰를 띄우지 않고 "없습니다" 로 끝낸다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await input(page).fill('안녕하세요');
+
+  await expect(highlight(page)).toHaveJSProperty('hidden', true);
+  await expect(panel(page, INVISIBLE).locator('.result-empty')).toHaveText(
+    '보이지 않는 문자나 제어문자가 없습니다.',
+  );
+});
+
+test('입력을 지우면 강조 뷰도 걷힌다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await input(page).fill(`a${ZWSP}b`);
+  await expect(highlight(page)).toHaveJSProperty('hidden', false);
+
+  await input(page).fill('');
+  await expect(highlight(page)).toHaveJSProperty('hidden', true);
+  await expect(body(page).locator('span')).toHaveCount(0);
+});
+
+test('줄바꿈은 마커가 아니라 줄바꿈으로 읽힌다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await input(page).fill(`첫 줄\n둘째 줄${ZWSP}`);
+
+  // \n 은 신고 대상이 아니므로 마커가 붙지 않는다(붙으면 거의 모든 입력이
+  // 마커밭이 되어 이 뷰가 쓸모없어진다).
+  await expect(body(page).locator('.tc-mark')).toHaveText(['U+200B']);
+  // 그리고 실제로 두 줄로 그려져야 한다 \u2014 white-space 를 잃으면 한 줄이 된다.
+  await expect(body(page)).toHaveCSS('white-space', 'pre-wrap');
+  // 인라인 런의 클라이언트 사각형 수 = 그 런이 실제로 차지한 줄 수. white-space 를
+  // 잃으면 '첫 줄\n둘째 줄' 이 한 줄로 붙어 여기가 1 이 된다.
+  const lines = await body(page)
+    .locator('.tc-run')
+    .first()
+    .evaluate((el) => el.getClientRects().length);
+  expect(lines, '본문이 두 줄로 그려지지 않았습니다').toBeGreaterThan(1);
+});
+
+test('U+2028 / U+2029 는 마커로 바뀌고 원본 문자는 DOM 에 들어가지 않는다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await setRawValue(page, `a${LS}b${PS}c`);
+
+  await expect(body(page).locator('.tc-mark')).toHaveText(['U+2028', 'U+2029']);
+  const leaked = await page.evaluate(() => {
+    const el = document.querySelector('#tool-root .tc-body') as HTMLElement;
+    return /[\u2028\u2029]/.test(el.textContent ?? '');
+  });
+  expect(leaked, 'U+2028/U+2029 원본이 DOM 에 새어 들어갔습니다').toBe(false);
+});
+
+test('방향 뒤집기 문자(RLO)는 마커로 바뀌어 주변 문구를 뒤집지 못한다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await setRawValue(page, `invoice${RLO}gpj.exe`);
+
+  await expect(body(page).locator('.tc-mark')).toHaveText(['U+202E']);
+  // 진짜 방어는 "DOM 에 넣지 않는다" 다. #tool-root 어디에도 원본이 없어야 한다 \u2014
+  // 하나라도 남으면 그 뒤의 UI 문구가 통째로 거꾸로 그려진다.
+  const leaked = await page.evaluate(() =>
+    /[\u202A-\u202E\u2066-\u2069]/.test(
+      (document.querySelector('#tool-root') as HTMLElement).textContent ?? '',
+    ),
+  );
+  expect(leaked, '방향 제어 문자가 DOM 에 새어 들어갔습니다').toBe(false);
+});
+
+test('붙여넣은 HTML 은 마크업이 되지 않고 글자 그대로 그려진다', async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on('dialog', (d) => {
+    dialogs.push(d.message());
+    void d.dismiss();
+  });
+  const requests: string[] = [];
+  page.on('request', (r) => requests.push(r.url()));
+
+  await page.goto('/#/text-count');
+  const payload = `<img src=x onerror=alert(1)>${ZWSP}<script>alert(2)</script>`;
+  await input(page).fill(payload);
+
+  // 요소가 만들어지지 않았다.
+  await expect(page.locator('#tool-root .tc-body img')).toHaveCount(0);
+  await expect(page.locator('#tool-root .tc-body script')).toHaveCount(0);
+  // 글자 그대로 보인다.
+  await expect(body(page)).toContainText('<img src=x onerror=alert(1)>');
+  await expect(body(page)).toContainText('<script>alert(2)</script>');
+  await expect(body(page).locator('.tc-mark')).toHaveText(['U+200B']);
+
+  expect(dialogs, `alert 이 떴습니다: ${dialogs.join(', ')}`).toEqual([]);
+  // onerror 가 돌려면 먼저 x 를 받으러 나가야 한다. 나간 요청이 있으면 안 된다.
+  expect(requests.filter((u) => u.endsWith('/x'))).toEqual([]);
+});
+
+test('너무 긴 입력은 앞부분만 그리고, 잘랐다는 사실을 말한다', async ({ page }) => {
+  await page.goto('/#/text-count');
+  await expect(input(page)).toBeVisible();
+
+  // 1MB 붙여넣기. 사람들이 실제로 하는 짓이다.
+  const timing = await page.evaluate((zwsp) => {
+    const el = document.querySelector('#tool-root textarea') as HTMLTextAreaElement;
+    el.value = `${zwsp}${'가나다라마'.repeat(200_000)}`;
+    const started = performance.now();
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return { ms: performance.now() - started, length: el.value.length };
+  }, ZWSP);
+
+  await expect(highlight(page)).toHaveJSProperty('hidden', false);
+  await expect(highlight(page).locator('.io-warn')).toContainText('표시하지 않았습니다');
+  await expect(highlight(page).locator('.io-warn')).toContainText('20,000자');
+
+  // 잘라내는 것이 실제로 일어났는지 \u2014 상자 안 글자수로 확인한다. 상한을 없애면
+  // 여기가 100만이 된다.
+  const shown = await body(page).evaluate((el) => (el.textContent ?? '').length);
+  expect(shown, `강조 뷰에 그려진 글자수 ${shown}`).toBeLessThan(30_000);
+
+  // 목록 쪽 개수는 잘라내지 않은 전체 기준이다.
+  await expect(panel(page, INVISIBLE).locator('.result-list dt')).toHaveText(['U+200B']);
+
+  // 상한이 없으면 노드 수십만 개를 만들며 탭이 얼어붙는다. 넉넉히 잡아도 걸린다.
+  expect(timing.ms, `1MB(${timing.length}자) 입력 처리 ${timing.ms.toFixed(1)}ms`).toBeLessThan(
+    3000,
+  );
+});

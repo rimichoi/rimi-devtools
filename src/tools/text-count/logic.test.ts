@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
+  buildHighlight,
+  HIGHLIGHT_MAX_UNITS,
   countText,
   countEucKrBytes,
   findInvisibleChars,
@@ -18,6 +20,11 @@ import {
  */
 const ZWSP = '\u200B';
 const NBSP = '\u00A0';
+/** 줄 구분자 / 문단 구분자 — 그대로 DOM 에 들어가면 레이아웃을 깨는 부류 */
+const LS = '\u2028';
+const PS = '\u2029';
+/** 오른쪽→왼쪽 강제. 주변 문구의 순서를 뒤집는 바로 그 문자 */
+const RLO = '\u202E';
 
 describe('countText', () => {
   it('ASCII 를 센다', () => {
@@ -373,5 +380,111 @@ describe('formatUnsupportedChar', () => {
     expect(formatUnsupportedChar({ char: '\uD800', codePoint: 0xd800, count: 1 })).toBe(
       '(보이지 않는 문자) · 1회',
     );
+  });
+});
+
+
+describe('buildHighlight', () => {
+  /** 세그먼트를 읽기 쉬운 한 줄로 만든다. 마커는 [U+200B] 로 적는다. */
+  function sketch(text: string, maxUnits?: number): string {
+    return buildHighlight(text, maxUnits)
+      .segments.map((s) => (s.kind === 'text' ? s.text : `[${s.mark.label}]`))
+      .join('');
+  }
+
+  /** 세그먼트가 실제로 실어 나른 원본 문자만 이어 붙인다. */
+  function carried(text: string, maxUnits?: number): string {
+    return buildHighlight(text, maxUnits)
+      .segments.filter((s) => s.kind === 'text')
+      .map((s) => (s.kind === 'text' ? s.text : ''))
+      .join('');
+  }
+
+  it('신고 대상 문자를 있던 자리에서 마커로 바꾼다', () => {
+    expect(sketch(`a${ZWSP}b`)).toBe('a[U+200B]b');
+  });
+
+  it('마커 사이의 평문은 한 덩어리로 유지한다 (문자마다 쪼개지 않는다)', () => {
+    expect(buildHighlight(`안녕하세요${ZWSP}반갑습니다`).segments).toEqual([
+      { kind: 'text', text: '안녕하세요' },
+      {
+        kind: 'mark',
+        mark: {
+          codePoint: 0x200b,
+          label: 'U+200B',
+          name: '제로폭 공백 (ZWSP)',
+          loneSurrogate: false,
+        },
+      },
+      { kind: 'text', text: '반갑습니다' },
+    ]);
+  });
+
+  it('줄바꿈은 마커가 아니라 줄바꿈 그대로 남는다', () => {
+    expect(sketch(`a\nb${ZWSP}`)).toBe('a\nb[U+200B]');
+  });
+
+  it('U+2028 / U+2029 는 원본 문자를 걷어내고 마커로만 내보낸다', () => {
+    expect(sketch(`a${LS}b${PS}c`)).toBe('a[U+2028]b[U+2029]c');
+    // 원본 문자가 평문 세그먼트에 섞여 나가면 그리는 쪽에서 줄이 깨진다.
+    expect(carried(`a${LS}b${PS}c`)).toBe('abc');
+  });
+
+  it('방향 뒤집기 문자(RLO)는 어느 세그먼트에도 실리지 않는다', () => {
+    // DOM 에 들어가지 않는 문자는 주변 UI 문구를 뒤집을 수 없다 — 이게 방어의 전부다.
+    expect(carried(`a${RLO}b`)).toBe('ab');
+    expect(sketch(`a${RLO}b`)).toBe('a[U+202E]b');
+  });
+
+  it('짝 잃은 서로게이트도 마커가 된다', () => {
+    expect(sketch('a\uD800b')).toBe('a[U+D800]b');
+  });
+
+  it('제대로 짝지어진 서로게이트 쌍(이모지)은 마커 대상이 아니고 쪼개지지도 않는다', () => {
+    expect(sketch('a\u{1F600}b')).toBe('a\u{1F600}b');
+  });
+
+  it('찾은 것이 없으면 마커 수가 0 이고 원문이 그대로 한 덩어리다', () => {
+    const view = buildHighlight('안녕하세요');
+    expect(view.markCount).toBe(0);
+    expect(view.omitted).toBe(0);
+    expect(view.segments).toEqual([{ kind: 'text', text: '안녕하세요' }]);
+  });
+
+  it('빈 문자열은 세그먼트가 없다', () => {
+    expect(buildHighlight('')).toEqual({ segments: [], omitted: 0, markCount: 0 });
+  });
+
+  it('상한을 넘으면 잘라내고 잘라낸 양을 알린다', () => {
+    const text = `${ZWSP}${'a'.repeat(50)}`;
+    expect(buildHighlight(text, 10).omitted).toBe(41); // 전체 51 - 보여준 10
+    expect(sketch(text, 10)).toBe(`[U+200B]${'a'.repeat(9)}`);
+  });
+
+  it('상한을 넘지 않으면 omitted 가 0 이다', () => {
+    expect(buildHighlight(`${ZWSP}abc`, 10).omitted).toBe(0);
+  });
+
+  it('상한 경계가 서로게이트 쌍 한가운데여도 쌍을 쪼개지 않는다', () => {
+    // 'a' 1단위 + 이모지 2단위 + 'bbb' 3단위 = 6단위. 상한 2 는 이모지 한가운데다.
+    // 반쪽 서로게이트가 새어 나가면 그리는 쪽에서 U+FFFD 로 그려지므로, 문자
+    // 경계에서만 끊는다 — 경계에 걸친 문자는 통째로 포함하고 거기서 멈춘다.
+    const view = buildHighlight('a\u{1F600}bbb', 2);
+    expect(view.segments).toEqual([{ kind: 'text', text: 'a\u{1F600}' }]);
+    expect(view.omitted).toBe(3);
+  });
+
+  it('기본 상한은 상수로 노출돼 UI 안내 문구와 어긋날 수 없다', () => {
+    const long = `${ZWSP}${'a'.repeat(HIGHLIGHT_MAX_UNITS + 100)}`;
+    expect(buildHighlight(long).omitted).toBe(101);
+  });
+
+  it('마커 수가 발견 목록의 총 횟수와 정확히 같다', () => {
+    // 두 함수가 각자 훑으면 여기서 갈라진다 — 목록에는 있는데 본문에는 표시가
+    // 없는(또는 그 반대) 상태는 진단 도구에서 결함이 아니라 거짓말이다.
+    const text = `가${ZWSP}나${NBSP}다${RLO}라${LS}마\uD800`;
+    const listed = findInvisibleChars(text).reduce((sum, f) => sum + f.count, 0);
+    expect(listed).toBe(5);
+    expect(buildHighlight(text).markCount).toBe(listed);
   });
 });

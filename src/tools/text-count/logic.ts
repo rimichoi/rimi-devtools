@@ -284,8 +284,33 @@ export function formatCodePoint(codePoint: number): string {
   return `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
 }
 
-export function findInvisibleChars(text: string): CharFinding[] {
-  const found = new Map<number, CharFinding>();
+interface ScannedChar {
+  /** 이 문자가 시작하는 UTF-16 인덱스 */
+  index: number;
+  codePoint: number;
+  /** 이 문자가 차지하는 UTF-16 단위 수(1 또는 2) */
+  units: number;
+  /** 신고 대상인가 — `isFlagged` 이거나 짝 잃은 서로게이트 */
+  flagged: boolean;
+  loneSurrogate: boolean;
+  /** 1부터 세는 줄 번호 */
+  line: number;
+  /** 1부터 세는 줄 안 위치(코드포인트 기준) */
+  column: number;
+}
+
+/**
+ * 텍스트를 코드포인트 단위로 한 번 훑는다.
+ *
+ * "무엇이 보이지 않는 문자인가" 의 정의가 이 한 곳에만 있다. 발견 목록
+ * (`findInvisibleChars`)과 본문 강조(`buildHighlight`)가 각자 훑으면, 목록에는
+ * 있는데 본문에는 표시가 없는(또는 그 반대) 상태가 조용히 갈라져 나온다 —
+ * 진단 도구에서 그건 결함이 아니라 거짓말이다. 그래서 스캔 자체를 공유한다.
+ *
+ * 게으르다: 소비하는 쪽이 break 하면 나머지는 훑지 않는다(강조 뷰가 상한까지만
+ * 보고 멈출 수 있어야 한다).
+ */
+function* scanChars(text: string): Generator<ScannedChar> {
   let line = 1;
   let column = 1;
 
@@ -295,32 +320,25 @@ export function findInvisibleChars(text: string): CharFinding[] {
     const isLow = unit >= 0xdc00 && unit <= 0xdfff;
 
     let codePoint = unit;
-    let width = 1;
+    let units = 1;
     if (isHigh && i + 1 < text.length) {
       const next = text.charCodeAt(i + 1);
       if (next >= 0xdc00 && next <= 0xdfff) {
         codePoint = (unit - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
-        width = 2;
+        units = 2;
       }
     }
-    const loneSurrogate = width === 1 && (isHigh || isLow);
+    const loneSurrogate = units === 1 && (isHigh || isLow);
 
-    if (loneSurrogate || isFlagged(codePoint)) {
-      let entry = found.get(codePoint);
-      if (!entry) {
-        entry = {
-          codePoint,
-          label: formatCodePoint(codePoint),
-          name: loneSurrogate ? LONE_SURROGATE_NAME : (CHAR_NAMES.get(codePoint) ?? ''),
-          count: 0,
-          positions: [],
-          loneSurrogate,
-        };
-        found.set(codePoint, entry);
-      }
-      entry.count++;
-      if (entry.positions.length < MAX_POSITIONS) entry.positions.push({ line, column });
-    }
+    yield {
+      index: i,
+      codePoint,
+      units,
+      flagged: loneSurrogate || isFlagged(codePoint),
+      loneSurrogate,
+      line,
+      column,
+    };
 
     // \r\n 은 줄바꿈 하나로 센다.
     const isCr = codePoint === 0x0d;
@@ -332,10 +350,123 @@ export function findInvisibleChars(text: string): CharFinding[] {
       column++;
     }
 
-    i += width - 1;
+    i += units - 1;
+  }
+}
+
+/** 신고 대상 문자 하나의 이름표. 목록과 본문 강조가 같은 문구를 쓴다. */
+function describeChar(codePoint: number, loneSurrogate: boolean): { label: string; name: string } {
+  return {
+    label: formatCodePoint(codePoint),
+    name: loneSurrogate ? LONE_SURROGATE_NAME : (CHAR_NAMES.get(codePoint) ?? ''),
+  };
+}
+
+export function findInvisibleChars(text: string): CharFinding[] {
+  const found = new Map<number, CharFinding>();
+
+  for (const char of scanChars(text)) {
+    if (!char.flagged) continue;
+
+    let entry = found.get(char.codePoint);
+    if (!entry) {
+      entry = {
+        codePoint: char.codePoint,
+        ...describeChar(char.codePoint, char.loneSurrogate),
+        count: 0,
+        positions: [],
+        loneSurrogate: char.loneSurrogate,
+      };
+      found.set(char.codePoint, entry);
+    }
+    entry.count++;
+    if (entry.positions.length < MAX_POSITIONS) {
+      entry.positions.push({ line: char.line, column: char.column });
+    }
   }
 
   return [...found.values()];
+}
+
+/* ==========================================================================
+ * 본문 강조 — 찾은 문자를 "있던 자리에" 보여주기
+ *
+ * 목록은 `1줄 6칸` 같은 좌표를 주지만, 사람은 그걸 다시 세어 찾아야 한다.
+ * 여기서는 입력을 그대로 되돌려 그리되 신고 대상 문자만 눈에 보이는 표시로
+ * 바꾼다.
+ *
+ * 이 함수는 **원본 문자를 표시 대상에서 걷어낸다** — 마커 세그먼트는 코드포인트
+ * 이름만 나르고, 원본 문자는 어느 세그먼트에도 실려 나가지 않는다. 그게 방향
+ * 제어 문자(U+202E RLO 등)에 대한 근본 방어다: DOM 에 들어가지 않는 문자는
+ * 주변 UI 문구를 뒤집을 수 없다. `formatUnsupportedChar` 가 '(보이지 않는 문자)'
+ * 로 대체하는 것과 같은 이유이고, 원문 전체를 그리는 이쪽이 훨씬 더 절실하다.
+ * ========================================================================== */
+
+export interface HighlightMark {
+  codePoint: number;
+  /** 'U+200B' — 발견 목록의 dt 와 같은 표기라 서로 대조할 수 있다 */
+  label: string;
+  /** 선별한 집합에만 있는 한국어 설명. 없으면 빈 문자열 */
+  name: string;
+  loneSurrogate: boolean;
+}
+
+export type HighlightSegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'mark'; mark: HighlightMark };
+
+export interface HighlightView {
+  segments: HighlightSegment[];
+  /** 상한에 걸려 보여주지 못한 UTF-16 단위 수. 0 이면 전부 보여준 것 */
+  omitted: number;
+  /** 보여준 구간 안의 마커 수 */
+  markCount: number;
+}
+
+/**
+ * 강조 뷰가 그릴 최대 길이(UTF-16 단위).
+ *
+ * 사람들은 여기에 메가바이트를 붙여넣는다. 상한이 없으면 마커 하나마다 span 을
+ * 만드는 이 뷰가 노드 수십만 개를 만들어 탭을 얼린다. 잘라낸 사실은 UI 에서
+ * 반드시 말한다 — 조용히 일부만 보여주는 것이 이 도구에서 가장 나쁜 실패다.
+ */
+export const HIGHLIGHT_MAX_UNITS = 20_000;
+
+export function buildHighlight(text: string, maxUnits = HIGHLIGHT_MAX_UNITS): HighlightView {
+  const segments: HighlightSegment[] = [];
+  let markCount = 0;
+  /** 아직 세그먼트로 내보내지 않은 평문의 시작 인덱스 */
+  let plainStart = 0;
+  /** 실제로 보여준 끝 인덱스 */
+  let end = text.length;
+
+  for (const char of scanChars(text)) {
+    // 문자 경계에서만 끊는다. 인덱스로 그냥 자르면 서로게이트 쌍이 반쪽만 남아
+    // 그리는 쪽에서 U+FFFD 가 된다 — 상한을 한 단위쯤 넘기는 편이 낫다.
+    if (char.index >= maxUnits) {
+      end = char.index;
+      break;
+    }
+    if (!char.flagged) continue;
+
+    if (char.index > plainStart) {
+      segments.push({ kind: 'text', text: text.slice(plainStart, char.index) });
+    }
+    segments.push({
+      kind: 'mark',
+      mark: {
+        codePoint: char.codePoint,
+        ...describeChar(char.codePoint, char.loneSurrogate),
+        loneSurrogate: char.loneSurrogate,
+      },
+    });
+    markCount++;
+    plainStart = char.index + char.units;
+  }
+
+  if (end > plainStart) segments.push({ kind: 'text', text: text.slice(plainStart, end) });
+
+  return { segments, omitted: text.length - end, markCount };
 }
 
 /** 'U+200B' 를 뺀 나머지 — 설명 · 횟수 · 위치. ResultList 의 값 칸에 들어간다. */

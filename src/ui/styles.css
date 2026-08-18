@@ -837,6 +837,66 @@ input[type='checkbox']:checked::before {
 }
 
 /* ==========================================================================
+ * 글자수 세기 — 본문 강조 뷰
+ *
+ * 읽는 화면이지 hex 덤프가 아니다. 평문은 평소 본문색·본문 크기로 그대로 두고,
+ * 마커만 배지로 띄운다. 마커 색은 --warn 계열을 쓴다 — 이 도구에서 찾고 있는
+ * 바로 그것이라는 뜻이고, 오류(--error)는 아니기 때문이다.
+ * ========================================================================== */
+
+.text-count-highlight {
+  margin-bottom: var(--sp-4);
+}
+
+.tc-body {
+  padding: var(--sp-3);
+  max-height: 40vh;
+  overflow: auto;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: var(--leading-code);
+  /* 줄바꿈은 줄바꿈으로 읽혀야 한다. 긴 줄은 접어서 가로 스크롤을 만들지 않는다. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/*
+ * 평문 런도 span 으로 감싸 격리한다. 강한 RTL 문자(히브리·아랍 문자)는 마커로
+ * 바꾸지 않으므로 여전히 본문에 들어오는데, 격리가 없으면 그 런이 이웃한 마커
+ * 배지의 순서까지 뒤집어 "몇 번째 자리의 문자인지" 를 거짓으로 만든다.
+ */
+.tc-run,
+.tc-mark {
+  unicode-bidi: isolate;
+}
+
+.tc-mark {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 0 4px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-sm);
+  background: var(--warn-soft);
+  color: var(--warn-fg);
+  font-family: var(--font-mono);
+  /* 배지가 줄 높이를 밀어 문단이 들썩이지 않게 본문보다 한 단 작게 둔다. */
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* 잘라냈다는 안내는 결과 바로 아래 꼬리말 띠로 붙인다(IOPane 출력 카드와 같은 언어). */
+.text-count-highlight > .io-warn {
+  border-width: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* ==========================================================================
  * NumberForm — 단일 줄 입력 폼
  * ========================================================================== */
 
