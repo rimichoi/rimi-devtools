@@ -567,8 +567,8 @@ input[type='checkbox']:checked::before {
  * --surface(=읽기 전용 패널). 어느 쪽이 출력인지는 .io-output-head 를 :has() 로
  * 찾아 판별하므로, 카드 자신에게 클래스를 따로 심지 않는다.
  *
- * LinkedPanes(양방향 두 짝) 의 카드는 둘 다 편집 가능하므로 이 규칙에서 --bg 를
- * 그대로 물려받는다 — 그쪽은 .io-output-head 대신 .io-input-head 를 쓴다.
+ * 한 화면에 IOPane 이 둘 있는 경우(base64/url-encode 의 인코딩 세트와 디코딩
+ * 세트)도 같은 규칙으로 그려진다 — 세트마다 자기 입력 카드와 출력 카드를 갖는다.
  */
 .io-pane > div {
   display: flex;
@@ -599,7 +599,6 @@ input[type='checkbox']:checked::before {
  * 강한 테두리를 받는 것 — 입력 대상인 표면:
  *   - 단일 줄 input/textarea/select/button (아래 폼 필드 기본 규칙, 이미 적용됨)
  *   - IOPane 의 입력 패널
- *   - LinkedPanes 의 두 패널 (양쪽 다 편집 가능하다)
  * 받지 않는 것 — 표시 영역이지 컨트롤이 아닌 것:
  *   - IOPane 의 출력 패널 (읽기 전용이다. 복사는 되지만 입력 대상이 아니다)
  *   - .io-error / .io-warn / .form-result / .exif-preview / ResultList 패널
@@ -607,12 +606,11 @@ input[type='checkbox']:checked::before {
  *
  * 이 규칙이 생긴 경위: 단일 줄 input 은 이미 --border-strong(3.6:1)이었는데
  * textarea 를 감싼 패널 카드만 --border(1.25:1)여서, "타이핑하는 자리" 가 한
- * 화면 안에서 두 가지 대우를 받고 있었다. LinkedPanes 가 만든 문제가 아니라
- * 드러낸 문제다.
+ * 화면 안에서 두 가지 대우를 받고 있었다.
  *
  * 판별은 .io-output-head 의 유무로 한다 — 출력 패널만 그 클래스를 갖는다.
- * IOPane 의 입력 패널(맨 label 머리)과 LinkedPanes 의 패널(.io-input-head)이
- * 함께 걸린다. 카드 자신에게 클래스를 더 심지 않기 위함이다.
+ * IOPane 의 입력 패널(맨 label 머리)이 걸린다. 카드 자신에게 클래스를 더 심지
+ * 않기 위함이다.
  * ========================================================================== */
 .io-pane > div:not(:has(.io-output-head)) {
   border-color: var(--border-strong);
@@ -626,7 +624,6 @@ input[type='checkbox']:checked::before {
 
 /* 카드 머리 라벨 스트립 */
 .io-pane label,
-.io-input-head,
 .io-output-head {
   display: flex;
   align-items: center;
@@ -645,24 +642,12 @@ input[type='checkbox']:checked::before {
 }
 
 /* 복사 버튼을 오른쪽 끝에 붙이는 머리 스트립은 오른쪽 여백을 좁게 준다. */
-.io-input-head,
 .io-output-head {
   padding-right: 6px;
-}
-
-.io-output-head {
   background: var(--surface-2);
 }
 
-/*
- * LinkedPanes 의 두 카드는 둘 다 편집 가능한 동등한 짝이므로, 읽기 전용 결과
- * 카드(.io-output-head)의 --surface-2 대신 입력 라벨과 같은 --surface 를 쓰고
- * 몸통도 --bg 로 남는다. 그래서 .io-output-head 가 아니라 별도 클래스를 쓴다 —
- * 그 클래스는 "이 카드는 읽기 전용 결과다" 라는 뜻까지 함께 나른다.
- */
-
 /* 머리 스트립 안에 라벨이 중첩돼 있으므로 스트립 장식을 한 번만 적용한다 */
-.io-input-head label,
 .io-output-head label {
   min-height: 0;
   padding: 0;
@@ -670,7 +655,6 @@ input[type='checkbox']:checked::before {
   border-bottom: 0;
 }
 
-.io-input-head button,
 .io-output-head button {
   padding: 3px var(--sp-2);
   border-color: transparent;
@@ -681,7 +665,6 @@ input[type='checkbox']:checked::before {
   text-transform: none;
 }
 
-.io-input-head button:hover,
 .io-output-head button:hover {
   border-color: var(--border-strong);
   background: var(--bg);
@@ -700,6 +683,19 @@ input[type='checkbox']:checked::before {
   font-size: var(--text-base);
   line-height: var(--leading-code);
   resize: vertical;
+}
+
+/*
+ * 한 화면에 IOPane 세트가 둘 있는 경우(base64/url-encode 의 인코딩 세트 + 디코딩
+ * 세트) 각 입력창을 낮춘다. 56vh 짜리 세트 둘이면 두 번째 세트가 늘 화면 밖에서
+ * 시작하고, 그러면 "두 세트를 동시에 볼 수 있다" 는 이 화면의 존재 이유가 스크롤
+ * 뒤로 숨는다. .io-pane-1col 이 같은 이유로 26vh 를 쓴다.
+ *
+ * 판별은 구조로 한다 — 도구 id 를 CSS 에 박지 않는다. `.io-wrap + .section-heading`
+ * 은 "pane 다음에 다른 섹션이 이어진다" 는 뜻이고, 그게 정확히 이 경우다.
+ */
+#tool-root:has(.io-wrap + .section-heading) .io-pane textarea {
+  min-height: 26vh;
 }
 
 .io-pane textarea:focus-visible {
