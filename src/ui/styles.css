@@ -1,14 +1,86 @@
+/* ==========================================================================
+ * rimi devtools — 시각 토큰
+ *
+ * 색은 예외 없이 여기 선언된 커스텀 프로퍼티로만 쓴다. 규칙 안에 hex 를 직접
+ * 쓰면 테마 하나에서만 맞고 다른 테마에서 조용히 깨진다 — 실제로 #fff 하드코딩
+ * 때문에 다크 테마 --error 위 대비가 2.77:1(AA 기준 4.5:1)까지 떨어진 적이 있다.
+ * 색 토큰을 새로 만들 때는 반드시 아래 세 블록 모두에 정의한다:
+ *   1. :root                                  (라이트 기본값 / 첫 페인트)
+ *   2. @media (prefers-color-scheme: dark) 안의 :root:not([data-theme='light'])
+ *   3. :root[data-theme='dark']               (사용자가 저장한 선택)
+ * ========================================================================== */
+
 :root {
+  /* --- 색: 표면 ------------------------------------------------------------ */
   --bg: #ffffff;
-  --fg: #1a1a1a;
-  --muted: #6b7280;
-  --border: #e5e7eb;
+  --surface: #f7f8fa;
+  --surface-2: #eceff3;
+
+  /* --- 색: 텍스트 --------------------------------------------------------- */
+  --fg: #14161a;
+  --fg-2: #3f4653;
+  --muted: #5f6875;
+
+  /* --- 색: 경계 ----------------------------------------------------------- */
+  --border: #e3e6eb;
+  --border-strong: #c9cfd8;
+
+  /* --- 색: 강조 ----------------------------------------------------------- */
   --accent: #2563eb;
-  --error: #dc2626;
-  --warn: #b45309;
-  --surface: #f9fafb;
+  /* 강조색을 '텍스트'로 쓸 때의 값. --accent 를 그대로 본문에 쓰면 밝은 표면
+   * 위에서 4.5:1 을 못 넘기는 테마가 생기므로 전경용을 따로 둔다. */
+  --accent-fg: #1d4ed8;
+  --accent-soft: #e8effd;
   --on-accent: #ffffff;
+
+  /* --- 색: 상태 ----------------------------------------------------------- */
+  --error: #dc2626;
+  --error-fg: #c11c1c;
+  --error-soft: #fdeceb;
   --on-error: #ffffff;
+  --warn: #b45309;
+  --warn-fg: #8a4008;
+  --warn-soft: #fdf4e5;
+
+  /* --- 색: 그 외 ---------------------------------------------------------- */
+  --focus: #2563eb;
+  --overlay: rgba(15, 18, 23, 0.44);
+  --shadow-md: 0 1px 2px rgba(15, 18, 23, 0.06), 0 4px 12px rgba(15, 18, 23, 0.08);
+  --shadow-lg: 0 8px 32px rgba(15, 18, 23, 0.18);
+
+  /* --- 타이포 ------------------------------------------------------------- */
+  /* 웹폰트를 절대 쓰지 않는다(외부 요청 = 데이터 유출 경로). 시스템 스택만 쓴다. */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo',
+    'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'D2Coding',
+    'Liberation Mono', monospace;
+
+  --text-xs: 10.5px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 21px;
+  --leading-code: 1.65;
+
+  /* --- 간격 / 반경 -------------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+
+  /* --- 치수 -------------------------------------------------------------- */
+  --sidebar-w: 232px;
+  --content-max: 1180px;
+  /* 스칼라 입력 도구(백분율/시간/epoch)의 읽기 좋은 한 단 폭 */
+  --col-narrow: 620px;
+
   color-scheme: light;
 }
 
@@ -23,130 +95,1155 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     --bg: #111317;
-    --fg: #e5e7eb;
-    --muted: #9ca3af;
-    --border: #2a2f3a;
+    --surface: #171a1f;
+    --surface-2: #1e2228;
+
+    --fg: #e6e9ee;
+    --fg-2: #b9c0cb;
+    --muted: #8b95a5;
+
+    --border: #272c34;
+    --border-strong: #3a414c;
+
     --accent: #60a5fa;
-    --error: #f87171;
-    --warn: #fbbf24;
-    --surface: #191c22;
+    --accent-fg: #93c5fd;
+    --accent-soft: #17253c;
     --on-accent: #111317;
+
+    --error: #f87171;
+    --error-fg: #fca5a5;
+    --error-soft: #2a1719;
     --on-error: #111317;
+    --warn: #fbbf24;
+    --warn-fg: #fcd34d;
+    --warn-soft: #2a2211;
+
+    --focus: #60a5fa;
+    --overlay: rgba(0, 0, 0, 0.6);
+    --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
   --bg: #111317;
-  --fg: #e5e7eb;
-  --muted: #9ca3af;
-  --border: #2a2f3a;
+  --surface: #171a1f;
+  --surface-2: #1e2228;
+
+  --fg: #e6e9ee;
+  --fg-2: #b9c0cb;
+  --muted: #8b95a5;
+
+  --border: #272c34;
+  --border-strong: #3a414c;
+
   --accent: #60a5fa;
-  --error: #f87171;
-  --warn: #fbbf24;
-  --surface: #191c22;
+  --accent-fg: #93c5fd;
+  --accent-soft: #17253c;
   --on-accent: #111317;
+
+  --error: #f87171;
+  --error-fg: #fca5a5;
+  --error-soft: #2a1719;
   --on-error: #111317;
+  --warn: #fbbf24;
+  --warn-fg: #fcd34d;
+  --warn-soft: #2a2211;
+
+  --focus: #60a5fa;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
+/* ==========================================================================
+ * 기본
+ * ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * hidden 속성이 항상 실제로 먹게 고정한다. 작성자 스타일시트의 display 선언은
+ * UA 의 `[hidden] { display: none }` 보다 우선하므로, 예컨대 .result-list 에
+ * display:grid 를 주는 순간 list.hidden = true 가 "자식 없는 0높이 grid" 로
+ * 조용히 퇴화한다(접근성 트리에서도 사라지지 않는다). 이 한 줄이 그 부류의
+ * 결함을 통째로 막는다.
+ */
+[hidden] {
+  display: none !important;
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-#app { display: flex; min-height: 100vh; }
-#sidebar { width: 220px; border-right: 1px solid var(--border); padding: 12px; flex-shrink: 0; }
-#tool-root { flex: 1; padding: 20px; min-width: 0; }
+body.no-scroll {
+  overflow: hidden;
+}
 
-textarea, input, select, button {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:where(textarea, .palette-list, #sidebar) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* 포커스 링은 브라우저 기본값을 쓰지 않는다 — 두 테마 모두에서 보이는 값으로
+ * 통일한다. :focus-visible 이므로 마우스 클릭에는 나타나지 않는다. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* ==========================================================================
+ * 셸 레이아웃
+ * ========================================================================== */
+
+#app {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+#sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--sp-1);
+  width: var(--sidebar-w);
+  height: 100vh;
+  padding: var(--sp-4) var(--sp-3);
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+#content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#tool-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.tool-desc {
+  flex: 1 1 340px;
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+
+/* 이 제품의 핵심 약속을 모든 도구 화면에 상시 노출한다. 지금까지 EXIF 도구
+ * 안쪽에만 한 줄로 적혀 있었다. */
+.privacy-badge {
+  flex: none;
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+#tool-root {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-5);
+  width: 100%;
+  max-width: var(--content-max);
+  min-width: 0;
+  padding: var(--sp-5) var(--sp-6) var(--sp-7);
+}
+
+/* 스칼라 입력 + 구조화된 결과만 있는 도구는 넓은 화면에서 폭을 더 좁게 묶는다.
+ * data-tool 은 main.ts 가 이미 붙이고 있어 마크업을 건드리지 않고 잡을 수 있다. */
+#tool-root[data-tool='percent'],
+#tool-root[data-tool='time-calc'],
+#tool-root[data-tool='epoch'] {
+  max-width: calc(var(--col-narrow) + 2 * var(--sp-6));
+}
+
+#tool-root:focus {
+  outline: none;
+}
+
+/* ==========================================================================
+ * 사이드바
+ * ========================================================================== */
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: 0 var(--sp-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+}
+
+.kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.sidebar-heading {
+  margin: var(--sp-4) 0 var(--sp-1);
+  padding: 0 var(--sp-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 6px var(--sp-2);
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  font-size: var(--text-base);
+  text-decoration: none;
+  transition: background-color 90ms ease, color 90ms ease;
+}
+
+.sidebar-link:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+/* 활성 항목은 강조색 덩어리로 채우지 않는다 — 목록 하나에 색 블록이 하나 있으면
+ * 그 자체가 페이지에서 가장 무거운 요소가 된다. 옅은 강조 배경 + 왼쪽 2px 막대로
+ * 만든다. 막대는 요소를 추가하지 않고 inset box-shadow 로 그린다. */
+.sidebar-link.is-active {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--sp-4);
+}
+
+.theme-toggle {
+  justify-content: center;
+  width: 100%;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+ * 폼 컨트롤
+ * ========================================================================== */
+
+textarea,
+input,
+select,
+button {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 7px var(--sp-2);
+}
+
+/* 크롬(버튼/셀렉트/토글)은 UI 산세리프로, 데이터(입력/출력/값)는 모노스페이스로
+ * 쓴다. 위 묶음 선택자가 넷을 한꺼번에 잡으므로 여기서 되돌린다. */
+select,
+button {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1; /* 파이어폭스는 기본 opacity 를 0.54 로 준다 — 대비가 무너진다 */
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background-color 90ms ease, border-color 90ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--muted);
+}
+
+button:active:not(:disabled) {
+  background: var(--surface-2);
+}
+
+input[type='text'],
+input[type='search'],
+textarea {
+  background: var(--bg);
+}
+
+input[type='text']:hover,
+textarea:hover {
+  border-color: var(--muted);
+}
+
+/*
+ * 네이티브 셀렉트는 OS 크롬(맥의 파란 화살표 상자, 윈도의 각진 회색 버튼)으로
+ * 그려져 주변과 어긋난다. appearance:none 으로 껍데기를 벗기고 caret 을 직접
+ * 그린다. caret 은 이미지가 아니라 두 개의 linear-gradient 삼각형이다 —
+ * data: URI SVG 를 쓰면 색이 토큰이 아니라 SVG 안에 하드코딩돼 테마를 못 따른다.
+ */
+select {
+  appearance: none;
+  padding-right: 30px;
+  background-color: var(--surface-2);
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 15px top calc(50% - 1px), right 10px top calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: border-color 90ms ease;
+}
+
+select:hover {
+  border-color: var(--muted);
+}
+
+/* 윈도/리눅스의 옵션 팝업은 color-scheme 만으로는 배경을 못 따라오는 경우가 있다 */
+option {
   background: var(--bg);
   color: var(--fg);
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--sp-2) 6px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.inline-check:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  cursor: pointer;
+  transition: background-color 90ms ease, border-color 90ms ease;
+}
+
+input[type='checkbox']::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  background: var(--on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 90ms ease;
+}
+
+input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type='checkbox']:checked::before {
+  transform: scale(1);
+}
+
+/* ==========================================================================
+ * 컨트롤 바
+ * ========================================================================== */
+
+.io-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+/* ==========================================================================
+ * IOPane — 입력/출력 카드
+ * ========================================================================== */
+
+.io-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.io-pane {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.io-pane.io-pane-3col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/*
+ * 입력과 출력을 같은 모양의 맨몸 textarea 로 두면 어느 쪽이 무엇인지 아무것도
+ * 알려주지 못한다. 둘 다 라벨 스트립을 머리에 얹은 카드로 만들고, 몸통 배경을
+ * 한 단계 다르게 준다 — 입력은 페이지 배경(=편집 가능한 편집기), 출력은
+ * --surface(=읽기 전용 패널). 어느 쪽이 출력인지는 :has() 로 판별하므로
+ * 마크업에 클래스를 더 심지 않는다.
+ */
+.io-pane > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  transition: border-color 90ms ease;
 }
 
-.io-pane { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.io-pane.io-pane-3col { grid-template-columns: 1fr 1fr 1fr; }
-.io-pane textarea { width: 100%; min-height: 60vh; resize: vertical; }
-.io-error { color: var(--error); white-space: pre-wrap; margin-top: 8px; }
-.io-warn { color: var(--warn); white-space: pre-wrap; margin-top: 8px; }
-
-@media (max-width: 860px) {
-  .io-pane, .io-pane.io-pane-3col { grid-template-columns: 1fr; }
+.io-pane > div:has(.io-output-head) {
+  background: var(--surface);
 }
 
-.result-list-wrap { max-width: 620px; }
+.io-pane > div:has(textarea:focus-visible) {
+  border-color: var(--accent);
+}
+
+/* 카드 머리 라벨 스트립 */
+.io-pane label,
+.io-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: 34px;
+  margin: 0;
+  padding: 0 var(--sp-3);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.io-output-head {
+  padding-right: 6px;
+  background: var(--surface-2);
+}
+
+/* .io-output-head 안에 라벨이 중첩돼 있으므로 스트립 장식을 한 번만 적용한다 */
+.io-output-head label {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border-bottom: 0;
+}
+
+.io-output-head button {
+  padding: 3px var(--sp-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.io-output-head button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.io-pane textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 56vh;
+  padding: var(--sp-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: var(--text-base);
+  line-height: var(--leading-code);
+  resize: vertical;
+}
+
+.io-pane textarea:focus-visible {
+  /* 카드가 overflow:hidden 이므로 링을 안쪽으로 붙여 잘리지 않게 한다 */
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* ==========================================================================
+ * 알림 (오류 / 주의)
+ *
+ * 예전에는 색만 다른 맨 텍스트였다. JSON 정밀도 경고는 이 제품이 하는 일 중
+ * 가장 값진 것 하나인데 딸려붙은 군더더기처럼 보였다. 배경 + 왼쪽 4px 띠 + 여백을
+ * 갖춘 구조화된 블록으로 만든다.
+ * ========================================================================== */
+
+.io-error,
+.io-warn {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--r-md);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  /* 64비트 정수 ID 처럼 끊을 곳이 없는 긴 값이 좁은 화면에서 가로 스크롤을
+   * 만들지 않게 한다(실측: 420px 폭에서 scrollWidth 427px 였다). */
+  overflow-wrap: anywhere;
+}
+
+.io-error {
+  border-color: var(--error);
+  background: var(--error-soft);
+  color: var(--error-fg);
+}
+
+.io-warn {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn-fg);
+}
+
+/* 내용이 없을 때 빈 블록이 자리를 차지하거나 flex gap 을 만들지 않게 한다 */
+.io-error:empty,
+.io-warn:empty {
+  display: none;
+}
+
+/* 출력 카드 안에 들어가는 알림은 결과 바로 아래에 붙는 꼬리말 띠로 만든다 —
+ * 어느 결과에 대한 경고인지가 위치로 드러난다. */
+.io-pane > div > .io-error,
+.io-pane > div > .io-warn {
+  border-width: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: var(--sp-3);
+}
+
+/* ==========================================================================
+ * ResultList — 스칼라 입력의 구조화된 결과
+ * ========================================================================== */
+
+/* 라벨 스트립 + 본문을 하나로 묶는 공용 패널. IOPane 의 출력 카드와 같은 언어다. */
+.panel,
+.result-list-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.result-list-wrap {
+  max-width: var(--col-narrow);
+}
+
+.panel > .io-output-head,
+.result-list-wrap > .io-output-head {
+  border-bottom: 1px solid var(--border);
+}
+
 .result-list {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
-  margin: 8px 0 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 14px;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  padding: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.5;
 }
-.result-list dt { color: var(--muted); align-self: center; }
-.result-list dd { margin: 0; user-select: text; word-break: break-all; }
-.result-empty { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
-.sidebar-title { font-weight: 700; margin-bottom: 16px; }
-.sidebar-heading { font-size: 11px; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; }
-.sidebar-link { display: block; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
-.sidebar-link:hover { background: var(--surface); }
-.sidebar-link.is-active { background: var(--accent); color: var(--on-accent); }
+.result-list dt {
+  align-self: center;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
 
-.io-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-.io-output-head { display: flex; justify-content: space-between; align-items: center; }
-.io-pane label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.result-list dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--fg);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
 
-#toast-root { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
-.toast { padding: 10px 14px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.result-empty {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-3);
+  color: var(--muted);
+  font-size: var(--text-base);
+  text-align: center;
+}
+
+.result-list-wrap > .io-error {
+  border-width: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* ==========================================================================
+ * NumberForm — 단일 줄 입력 폼
+ * ========================================================================== */
+
+.tool-custom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.form-grid {
+  gap: var(--sp-3);
+  max-width: var(--col-narrow);
+}
+
+/* 입력 줄은 결과 상자보다 좁게 묶는다. 숫자 하나 받는 칸이 620px 로 늘어나 있으면
+ * 무엇을 넣는 자리인지가 흐려지고 화면이 미완성처럼 보인다. */
+.form-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 420px;
+}
+
+.form-grid label {
+  color: var(--muted);
+  /* 한글 라벨은 10.5px 에서 알아보기 어렵다. 라틴 대문자 마이크로 라벨(카드 머리,
+   * 사이드바 카테고리)과 달리 여기는 실제로 읽는 항목명이므로 한 단 올린다. */
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.form-grid input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--text-md);
+}
+
+/* 계산 결과는 이 화면의 주인공이다. 값이므로 모노스페이스로, 표면 위에 올린다.
+ * 다른 결과 영역(IOPane 출력 카드, ResultList)과 같은 라벨 스트립 언어를 쓰되,
+ * 라벨용 요소를 도구마다 추가하지 않도록 생성 콘텐츠로 얹는다. */
+.form-result:not(:empty)::before {
+  content: '결과';
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.form-result {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* 값이 없을 때 빈 상자가 고장난 것처럼 보이지 않게 안내 문구를 넣는다.
+ * 이 문구를 DOM 에 심으려면 numberForm 을 쓰는 모든 도구가 각자 빈 상태를
+ * 관리해야 하므로, 화면에만 필요한 안내는 생성 콘텐츠로 둔다. */
+.form-result:empty::before {
+  content: '값을 입력하면 결과가 표시됩니다.';
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 400;
+}
+
+/* 오류가 떠 있는 동안에는 "값을 입력하면…" 안내를 겹쳐 보여주지 않는다.
+ * numberForm 은 오류를 띄울 때 결과 문자열을 비우므로 두 문구가 동시에 나온다. */
+.form-grid:has(> .io-error:not(:empty)) .form-result:empty::before {
+  content: none;
+}
+
+/* ==========================================================================
+ * 섹션 구분
+ * ========================================================================== */
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+ * 드롭존 / EXIF
+ * ========================================================================== */
+
+.drop-zone {
+  padding: var(--sp-7) var(--sp-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--fg-2);
+  font-size: var(--text-md);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 90ms ease, background-color 90ms ease;
+}
+
+.drop-zone::before {
+  content: '↓';
+  display: block;
+  margin-bottom: var(--sp-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.drop-zone p {
+  margin: 0;
+}
+
+.drop-zone:hover {
+  border-color: var(--muted);
+  background: var(--surface-2);
+}
+
+.drop-zone.is-over {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-soft);
+}
+
+.drop-note {
+  margin-top: 6px !important;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.exif-preview {
+  max-width: 320px;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+/* .panel 안에 들어가므로 표 자신은 테두리를 갖지 않는다 */
+.exif-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+}
+
+.exif-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.exif-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.exif-table td:first-child {
+  width: 220px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
+
+/* ==========================================================================
+ * 토스트
+ * ========================================================================== */
+
+#toast-root {
+  position: fixed;
+  right: var(--sp-5);
+  bottom: var(--sp-5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-width: min(420px, calc(100vw - 2 * var(--sp-5)));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-lg);
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-base);
+  line-height: 1.45;
+}
+
 /*
  * 전경색을 #fff 로 하드코딩하면 다크 테마의 --error(#f87171) 위에서 대비가
  * 2.77:1 밖에 안 된다(WCAG AA 본문 요구치 4.5:1). 하필 이 클래스가 사용자가
  * 가장 읽어야 하는 영구 안내(도구 로드/마운트 실패)를 나른다. --on-error 는
  * 라이트 #ffffff / 다크 #111317 이고 각각 4.83:1, 6.72:1 이다.
  */
-.toast-error { background: var(--error); color: var(--on-error); }
-.toast-update { background: var(--accent); color: var(--on-accent); }
-.toast-update button { background: var(--on-accent); color: var(--accent); border: none; padding: 4px 10px; font-size: 12px; cursor: pointer; }
-.toast-dismiss { background: transparent; border: none; color: inherit; padding: 0 4px; font-size: 16px; line-height: 1; cursor: pointer; }
+.toast-error {
+  background: var(--error);
+  color: var(--on-error);
+}
 
-.form-grid { max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
-.form-grid label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.form-grid input { width: 100%; }
-.form-result { font-size: 22px; font-weight: 700; min-height: 30px; }
+.toast-update {
+  background: var(--accent);
+  color: var(--on-accent);
+}
 
-.section-heading { margin: 28px 0 10px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 18px; }
+.toast-update button {
+  padding: 4px var(--sp-2);
+  border: 0;
+  background: var(--on-accent);
+  color: var(--accent-fg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
 
-.inline-check { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg); }
+.toast-update button:hover {
+  background: var(--on-accent);
+  border-color: transparent;
+}
 
-.drop-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 36px 20px; text-align: center; cursor: pointer; color: var(--muted); }
-.drop-zone.is-over { border-color: var(--accent); background: var(--surface); }
-.drop-note { font-size: 12px; margin: 6px 0 0; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.exif-preview { max-width: 320px; max-height: 240px; margin-top: 16px; border-radius: 8px; border: 1px solid var(--border); }
-.exif-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-.exif-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; word-break: break-all; }
-.exif-table td:first-child { color: var(--muted); width: 180px; }
+.toast-dismiss {
+  flex: none;
+  margin-left: auto;
+  padding: 0 var(--sp-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
 
-.theme-toggle { margin-top: 24px; width: 100%; font-size: 12px; cursor: pointer; }
-.palette-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; justify-content: center; padding-top: 12vh; z-index: 200; }
-.palette-overlay[hidden] { display: none; }
-.palette-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(520px, 92vw); height: fit-content; overflow: hidden; }
-.palette-box input { width: 100%; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 14px; font-size: 15px; }
-.palette-box input:focus { outline: none; }
-.palette-list { max-height: 320px; overflow-y: auto; }
-.palette-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; font-size: 14px; }
-.palette-row.is-cursor { background: var(--accent); color: var(--on-accent); }
-.palette-row-name { flex: 1; }
-.palette-star { background: none; border: none; padding: 0 2px; border-radius: 4px; font-size: 14px; line-height: 1; cursor: pointer; color: inherit; }
-.palette-hint { padding: 6px 14px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+.toast-dismiss:hover {
+  background: transparent;
+  border-color: transparent;
+}
 
-body.no-scroll { overflow: hidden; }
+/* ==========================================================================
+ * 커맨드 팔레트
+ * ========================================================================== */
+
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  /* flex-start 가 없으면 stretch 기본값이 상자를 화면 끝까지 늘려, 힌트 줄 아래로
+   * 텅 빈 패널이 수백 px 남는다. */
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh var(--sp-4) var(--sp-4);
+  background: var(--overlay);
+}
+
+.palette-box {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.palette-box input {
+  flex: none;
+  width: 100%;
+  padding: var(--sp-4);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+}
+
+.palette-box input:focus,
+.palette-box input:focus-visible {
+  outline: none;
+}
+
+.palette-list {
+  flex: 1;
+  min-height: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.palette-list:focus-visible {
+  outline: none;
+}
+
+.palette-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.palette-row:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+/* 사이드바 활성 항목과 같은 언어를 쓴다 — 옅은 강조 배경 + 왼쪽 막대 */
+.palette-row.is-cursor {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.palette-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-star {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.palette-star:hover {
+  background: none;
+  border-color: transparent;
+}
+
+.palette-row.is-cursor .palette-star {
+  color: inherit;
+}
+
+.palette-hint {
+  flex: none;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* ==========================================================================
+ * 좁은 화면
+ * ========================================================================== */
+
+@media (max-width: 1000px) {
+  .io-pane,
+  .io-pane.io-pane-3col {
+    grid-template-columns: 1fr;
+  }
+
+  .io-pane textarea {
+    min-height: 34vh;
+  }
+}
+
+@media (max-width: 900px) {
+  #app {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /*
+   * 사이드바를 상단 가로 내비게이션으로 접는다. nav 에 display:contents 를 주면
+   * 카테고리 제목과 링크들이 같은 wrap flex 흐름에 섞여, 제목이 그룹 구분자처럼
+   * 읽히는 한 줄짜리 내비게이션이 된다(마크업 변경 없음).
+   */
+  #sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-1) 6px;
+    width: auto;
+    height: auto;
+    padding: var(--sp-3) var(--sp-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #sidebar nav {
+    display: contents;
+  }
+
+  .sidebar-title {
+    flex: 1 0 100%;
+    margin: 0 0 var(--sp-2);
+    padding: 0;
+  }
+
+  .sidebar-heading {
+    margin: 0 var(--sp-1);
+    padding: 0;
+  }
+
+  .sidebar-foot {
+    flex: 1 0 100%;
+    margin-top: var(--sp-2);
+    padding-top: 0;
+  }
+
+  .theme-toggle {
+    width: auto;
+  }
+
+  #tool-header {
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  }
+
+  #tool-root {
+    padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  }
+}
+
+@media (max-width: 520px) {
+  #toast-root {
+    right: var(--sp-3);
+    left: var(--sp-3);
+    bottom: var(--sp-3);
+    max-width: none;
+  }
+
+  .exif-table td:first-child {
+    width: 130px;
+  }
+
+  .palette-overlay {
+    padding: 8vh var(--sp-3) var(--sp-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}
