@@ -5,6 +5,9 @@ import type { Tool } from '../types';
 const make = (id: string, name: string, keywords: string[]): Tool => ({
   id,
   name,
+  // Tool.description 은 필수지만 이 스펙의 관심사가 아니다(검색/정렬은 이름과
+  // 키워드만 본다). 형태만 맞춘다.
+  description: '',
   keywords,
   category: 'format',
   load: async () => ({ mount: () => () => {} }),

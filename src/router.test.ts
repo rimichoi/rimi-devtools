@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { parseHash, resolveToolId, shouldRender, UNSET } from './router';
 import type { Tool } from './types';
 
+// router 는 id 만 본다. Tool.description 은 필수 필드이므로 형태만 맞춰 둔다.
 const tools = [
-  { id: 'base64', name: 'Base64', keywords: [], category: 'encode', load: async () => ({ mount: () => () => {} }) },
-  { id: 'epoch', name: 'Epoch', keywords: [], category: 'convert', load: async () => ({ mount: () => () => {} }) },
+  { id: 'base64', name: 'Base64', description: '', keywords: [], category: 'encode', load: async () => ({ mount: () => () => {} }) },
+  { id: 'epoch', name: 'Epoch', description: '', keywords: [], category: 'convert', load: async () => ({ mount: () => () => {} }) },
 ] as Tool[];
 
 describe('parseHash', () => {

@@ -21,6 +21,12 @@ export interface Tool {
   /** URL 해시가 되는 식별자. 소문자와 하이픈만 사용한다. */
   id: string;
   name: string;
+  /**
+   * 도구 화면 머리말에 이름과 함께 뜨는 한 줄 설명. 필수로 둔다 — 도구를
+   * 추가하면서 빼먹으면 그 도구만 설명 없는 화면이 되고, 그건 컴파일 단계에서
+   * 잡히는 게 낫다.
+   */
+  description: string;
   /** 커맨드 팔레트 검색어. 한글과 영문을 함께 넣는다. */
   keywords: string[];
   category: ToolCategory;

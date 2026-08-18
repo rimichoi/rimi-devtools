@@ -14,7 +14,15 @@
   <body>
     <div id="app">
       <aside id="sidebar"></aside>
-      <main id="tool-root" tabindex="-1"></main>
+      <!--
+        도구 이름/설명 헤더는 #tool-root 밖에 둔다. main.ts 는 도구가 mount 중
+        터졌을 때 #tool-root 를 비워 둔 채 토스트만 띄우는데(그래야 반쪽만 그려진
+        UI 를 남기지 않는다), 헤더를 #tool-root 안에 넣으면 그 계약이 깨진다.
+      -->
+      <div id="content">
+        <header id="tool-header"></header>
+        <main id="tool-root" tabindex="-1"></main>
+      </div>
     </div>
     <div id="toast-root"></div>
     <script type="module" src="/src/main.ts"></script>

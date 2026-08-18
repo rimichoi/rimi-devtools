@@ -7,10 +7,41 @@ import { applyTheme } from './shell/theme';
 import { createPalette } from './shell/palette';
 import { setupUpdatePrompt } from './shell/updateToast';
 import { showToast } from './ui/toast';
-import type { ToolModule } from './types';
+import type { Tool, ToolModule } from './types';
 
 const sidebar = document.querySelector<HTMLElement>('#sidebar');
 const root = document.querySelector<HTMLElement>('#tool-root');
+const header = document.querySelector<HTMLElement>('#tool-header');
+
+/**
+ * 도구 이름과 한 줄 설명을 본문 머리말에 그린다. 이전에는 도구가 무엇인지
+ * 알려주는 문구가 본문 어디에도 없었다(사이드바 링크 텍스트가 전부였다).
+ *
+ * #tool-root 가 아니라 형제인 #tool-header 에 그린다 — mount 가 터진 경우
+ * main.ts 는 #tool-root 를 빈 채로 남겨야 하고(e2e/tool-failure.spec.ts),
+ * 헤더를 그 안에 넣으면 그 계약을 깬다.
+ */
+function renderHeader(tool: Tool | null): void {
+  if (!header) return;
+  header.replaceChildren();
+  if (!tool) return;
+
+  const title = document.createElement('h1');
+  title.className = 'tool-title';
+  title.textContent = tool.name;
+
+  const desc = document.createElement('p');
+  desc.className = 'tool-desc';
+  desc.textContent = tool.description;
+
+  // 이 제품의 핵심 약속. 지금까지 EXIF 도구 안에만 적혀 있어서, 나머지 아홉 개
+  // 도구를 쓰는 사람은 입력이 어디로 가는지 화면에서 확인할 방법이 없었다.
+  const badge = document.createElement('span');
+  badge.className = 'privacy-badge';
+  badge.textContent = '브라우저 안에서만 처리 · 전송 없음';
+
+  header.append(title, desc, badge);
+}
 
 let cleanup: (() => void) | null = null;
 let currentId: string | null | typeof UNSET = UNSET;
@@ -30,6 +61,7 @@ async function render(): Promise<void> {
   renderSidebar(sidebar, tools, id);
 
   if (id === null) {
+    renderHeader(null);
     root.textContent = '등록된 도구가 없습니다.';
     return;
   }
@@ -37,9 +69,13 @@ async function render(): Promise<void> {
   prefs.pushRecent(id);
 
   const tool = findTool(id);
-  if (!tool) return;
+  if (!tool) {
+    renderHeader(null);
+    return;
+  }
 
   document.title = `${tool.name} · rimi devtools`;
+  renderHeader(tool);
 
   // 여기서 실패하는 방식은 두 가지이고, 사용자가 해야 할 일이 정반대다.
   // 하나로 묶으면 반드시 한쪽에 거짓 안내를 하게 되므로 try 를 분리한다.
