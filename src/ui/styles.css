@@ -979,6 +979,63 @@ input[type='checkbox']:checked::before {
 }
 
 /* ==========================================================================
+ * Jasypt — 두 세트가 공유하는 마스터 비밀번호
+ *
+ * 이 사이트에서 비밀 자체를 입력받는 유일한 자리다. 값을 저장하는 코드가 한 줄도
+ * 없으므로(도구의 index.ts 참고) 여기서 할 일은 "타이핑하는 칸으로 보이게" 하는
+ * 것뿐이다 — 테두리는 위 규칙대로 --border-strong(폼 필드 기본 규칙에서 이미
+ * 받는다), 새 색은 만들지 않는다.
+ * ========================================================================== */
+
+.jasypt-master {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 460px;
+  min-width: 0;
+}
+
+.jasypt-master > label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.jasypt-master-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.jasypt-master-row input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--text-md);
+}
+
+.jasypt-master-row input:hover {
+  border-color: var(--muted);
+}
+
+.jasypt-master-row button {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* 사용자가 자기 팀의 설정과 한 줄씩 대조하는 문구다. 값이므로 모노스페이스로 둔다. */
+.jasypt-algorithm {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
  * 섹션 구분
  * ========================================================================== */
 

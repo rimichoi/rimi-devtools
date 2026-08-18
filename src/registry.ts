@@ -95,6 +95,15 @@ export const tools: Tool[] = [
     category: 'file',
     load: () => import('./tools/exif/index').then((m) => m.default),
   },
+  {
+    id: 'jasypt',
+    name: 'Jasypt 복호화',
+    description:
+      'Spring 설정의 ENC(...) 값을 마스터 비밀번호로 풀거나 새로 만든다. PBEWithMD5AndDES 를 브라우저에서 계산한다.',
+    keywords: ['jasypt', 'enc', '복호화', '암호화', 'decrypt', 'encrypt', 'pbe', 'des', 'spring', '설정'],
+    category: 'encode',
+    load: () => import('./tools/jasypt/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
