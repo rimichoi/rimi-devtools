@@ -112,3 +112,54 @@ export function shiftDate(date: string, days: number): ToolResult<string> {
 
   return { ok: true, value: formatDate(shifted) };
 }
+
+/* ==========================================================================
+ * 입력 마스크
+ *
+ * 순수 함수다(DOM 을 모른다). 캐럿 보정은 `numberForm.ts` 가 맡는다 — 여기에
+ * 두면 vitest 의 environment: 'node' 에서 돌 수 없고, 저기 두면 도구마다 다시
+ * 쓰게 된다.
+ * ========================================================================== */
+
+/**
+ * 날짜 입력을 YYYY-MM-DD 모양으로 정리한다. `20260814`, `2026/08/14`,
+ * `2026.08.14` 를 모두 `2026-08-14` 로 만든다.
+ *
+ * 핵심은 **뒤따르는 숫자가 있을 때만** '-' 를 넣는다는 것이다. 자리수를 채우자마자
+ * 끝에 '-' 를 붙이는 흔한 구현은 백스페이스를 무력화한다: `2026-` 에서 '-' 를
+ * 지우면 마스크가 그 자리에 '-' 를 곧바로 되돌려 놓아 캐럿이 갇힌다.
+ *
+ * 치는 도중의 부분 입력(`2026-0`)은 그 모양 그대로 유지된다 — 완성된 날짜만
+ * 받아들이는 마스크는 사용자가 날짜를 끝까지 칠 수 없게 만든다.
+ */
+export function maskDateInput(raw: string): string {
+  const digits = raw.replace(/[^0-9]/g, '').slice(0, 8);
+  const month = digits.slice(4, 6);
+  const day = digits.slice(6, 8);
+
+  let out = digits.slice(0, 4);
+  if (month !== '') out += `-${month}`;
+  if (day !== '') out += `-${day}`;
+  return out;
+}
+
+/** 날짜 마스크에서 캐럿의 기준이 되는 문자 — '-' 는 마스크가 끼워 넣으므로 뺀다. */
+export function isDateInputAnchor(char: string): boolean {
+  return char >= '0' && char <= '9';
+}
+
+/**
+ * 일수 입력을 숫자와 맨 앞 '-' 하나로 제한한다. `Number('abc')` 가 NaN 이 되어
+ * 계산이 조용히 무너지는 자리를 아예 만들지 않는다.
+ *
+ * '-' 는 맨 앞에 있을 때만 살린다: `5-3` 은 `53`, `--5` 는 `-5` 가 된다.
+ */
+export function maskDayCountInput(raw: string): string {
+  const sign = raw.startsWith('-') ? '-' : '';
+  return sign + raw.replace(/[^0-9]/g, '');
+}
+
+/** 일수 마스크는 아무것도 끼워 넣지 않으므로 남는 문자 전부가 캐럿 기준이다. */
+export function isDayCountInputAnchor(char: string): boolean {
+  return char === '-' || (char >= '0' && char <= '9');
+}

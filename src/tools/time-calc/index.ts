@@ -1,7 +1,20 @@
 import type { ToolModule } from '../../types';
 import { createSelect } from '../../ui/select';
-import { createNumberForm, type NumberFormHandle } from '../../ui/numberForm';
-import { addDuration, diffDates, shiftDate } from './logic';
+import { createNumberForm, type FieldMask, type NumberFormHandle } from '../../ui/numberForm';
+import {
+  addDuration,
+  diffDates,
+  isDateInputAnchor,
+  isDayCountInputAnchor,
+  maskDateInput,
+  maskDayCountInput,
+  shiftDate,
+} from './logic';
+
+/** `2026-08-14`. `20260814` / `2026/08/14` / `2026.08.14` 를 모두 이 모양으로 만든다. */
+const DATE_MASK: FieldMask = { apply: maskDateInput, isAnchor: isDateInputAnchor };
+/** 숫자와 맨 앞 '-' 하나만. `Number('abc')` 가 NaN 이 되는 자리를 없앤다. */
+const DAY_COUNT_MASK: FieldMask = { apply: maskDayCountInput, isAnchor: isDayCountInputAnchor };
 
 type Mode = 'duration' | 'diff' | 'shift';
 
@@ -38,13 +51,13 @@ const mod: ToolModule = {
       }
       if (m === 'diff') {
         return [
-          { key: 'a', label: '시작 날짜', placeholder: '2026-08-01' },
-          { key: 'b', label: '종료 날짜', placeholder: '2026-08-14' },
+          { key: 'a', label: '시작 날짜', placeholder: '2026-08-01', mask: DATE_MASK },
+          { key: 'b', label: '종료 날짜', placeholder: '2026-08-14', mask: DATE_MASK },
         ];
       }
       return [
-        { key: 'a', label: '기준 날짜', placeholder: '2026-08-14' },
-        { key: 'b', label: '더할 일수 (음수 가능)', placeholder: '20' },
+        { key: 'a', label: '기준 날짜', placeholder: '2026-08-14', mask: DATE_MASK },
+        { key: 'b', label: '더할 일수 (음수 가능)', placeholder: '20', mask: DAY_COUNT_MASK },
       ];
     }
 

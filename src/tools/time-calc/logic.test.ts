@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { parseDuration, formatDuration, addDuration, diffDates, shiftDate } from './logic';
+import {
+  parseDuration,
+  formatDuration,
+  addDuration,
+  diffDates,
+  shiftDate,
+  maskDateInput,
+  maskDayCountInput,
+  isDateInputAnchor,
+  isDayCountInputAnchor,
+} from './logic';
 
 describe('parseDuration', () => {
   it('HH:MM:SS 를 초로 바꾼다', () => {
@@ -166,5 +176,92 @@ describe('shiftDate 방어', () => {
 
   it('네 자리 연도의 마지막 날을 넘어서면 막는다', () => {
     expect(shiftDate('9999-12-31', 1).ok).toBe(false);
+  });
+});
+
+describe('maskDateInput', () => {
+  it('숫자만 친 값에 구분자를 넣는다', () => {
+    expect(maskDateInput('20260814')).toBe('2026-08-14');
+  });
+
+  it('붙여넣은 여러 표기를 모두 같은 모양으로 만든다', () => {
+    for (const pasted of ['2026-08-14', '20260814', '2026/08/14', '2026.08.14']) {
+      expect(maskDateInput(pasted), pasted).toBe('2026-08-14');
+    }
+  });
+
+  it('치는 도중의 부분 입력을 그대로 유지한다', () => {
+    expect(maskDateInput('2')).toBe('2');
+    expect(maskDateInput('2026')).toBe('2026');
+    expect(maskDateInput('20260')).toBe('2026-0');
+    expect(maskDateInput('202608')).toBe('2026-08');
+    expect(maskDateInput('2026081')).toBe('2026-08-1');
+  });
+
+  it('자리수를 채워도 끝에 구분자를 붙이지 않는다', () => {
+    // 붙이면 백스페이스가 지운 자리를 마스크가 되채워 캐럿이 갇힌다.
+    expect(maskDateInput('2026')).not.toContain('-');
+    expect(maskDateInput('202608')).toBe('2026-08');
+    expect(maskDateInput('202608').endsWith('-')).toBe(false);
+  });
+
+  it('백스페이스로 되돌아가는 길이 막히지 않는다', () => {
+    // '2026-08' 에서 '8' 을 지운 상태를 마스크에 다시 먹인다.
+    expect(maskDateInput('2026-0')).toBe('2026-0');
+    expect(maskDateInput('2026-')).toBe('2026');
+    expect(maskDateInput('2026')).toBe('2026');
+  });
+
+  it('숫자가 아닌 것은 전부 버린다', () => {
+    expect(maskDateInput('안녕하세요')).toBe('');
+    expect(maskDateInput('20a26b08c14')).toBe('2026-08-14');
+  });
+
+  it('여덟 자리를 넘는 숫자는 잘라낸다', () => {
+    expect(maskDateInput('2026081499')).toBe('2026-08-14');
+  });
+
+  it('멱등이다 — 이미 정리된 값을 다시 먹여도 그대로다', () => {
+    expect(maskDateInput(maskDateInput('2026/08/14'))).toBe('2026-08-14');
+  });
+
+  it('캐럿 기준 문자는 숫자뿐이다 (구분자를 세면 캐럿이 밀린다)', () => {
+    expect(isDateInputAnchor('0')).toBe(true);
+    expect(isDateInputAnchor('9')).toBe(true);
+    expect(isDateInputAnchor('-')).toBe(false);
+  });
+});
+
+describe('maskDayCountInput', () => {
+  it('숫자는 그대로 둔다', () => {
+    expect(maskDayCountInput('20')).toBe('20');
+  });
+
+  it('맨 앞의 - 하나는 남긴다', () => {
+    expect(maskDayCountInput('-14')).toBe('-14');
+    expect(maskDayCountInput('-')).toBe('-');
+  });
+
+  it('숫자와 - 가 아닌 것은 전부 버린다', () => {
+    expect(maskDayCountInput('abc')).toBe('');
+    expect(maskDayCountInput('1a2b3')).toBe('123');
+    expect(maskDayCountInput('1.5')).toBe('15');
+    expect(maskDayCountInput('1e3')).toBe('13');
+  });
+
+  it('- 는 맨 앞에서만 살아남는다', () => {
+    expect(maskDayCountInput('5-3')).toBe('53');
+    expect(maskDayCountInput('--5')).toBe('-5');
+    expect(maskDayCountInput('-5-3')).toBe('-53');
+  });
+
+  it('멱등이다', () => {
+    expect(maskDayCountInput(maskDayCountInput('-1a2'))).toBe('-12');
+  });
+
+  it('캐럿 기준 문자는 살아남는 문자 전부다', () => {
+    expect(isDayCountInputAnchor('7')).toBe(true);
+    expect(isDayCountInputAnchor('-')).toBe(true);
+    expect(isDayCountInputAnchor('a')).toBe(false);
   });
 });
