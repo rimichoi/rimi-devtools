@@ -105,23 +105,41 @@ const mod: ToolModule = {
      * 결과가 "텍스트 한 덩어리" 가 아니라 라벨 붙은 두 줄(설정 파일용 / base64 만)
      * 이므로 ioPane 의 컴포넌트 선택 규칙 4번을 따른다: 입력은 IOPane 의 입력
      * 카드(output:false), 결과는 ResultList.
+     *
+     * 다만 그 조합을 세로로 쌓지 않는다. 글자수 세기는 같은 조합을 쓰면서 결과
+     * 카드가 넷이라 아래쪽 격자가 꽉 차지만, 여기는 결과 카드가 **하나**뿐이라
+     * 전폭 입력창 아래에 카드 하나가 덩그러니 남고 오른쪽 절반이 빈다(실측
+     * 1132×356 입력 + 620 결과). 바로 위 복호화 세트가 균형 잡힌 2열이라 그
+     * 어긋남이 더 두드러진다. 그래서 이 도구 전용 격자로 두 컴포넌트를 나란히
+     * 놓는다 — 공용 클래스(.io-pane-1col / .result-list-wrap)는 다른 도구들이
+     * 의존하므로 건드리지 않는다.
      */
+    const encryptRow = document.createElement('div');
+    encryptRow.className = 'jasypt-encrypt-row';
+    root.append(encryptRow);
+
     let encrypted: JasyptEncrypted | null = null;
 
-    const encryptInput = createIOPane(root, {
+    const encryptInput = createIOPane(encryptRow, {
       inputLabel: '평문',
       placeholder: '설정 파일에 넣을 값을 입력하면 ENC(...) 형태가 나옵니다.',
       output: false,
       onInput: (text) => update(text),
     });
 
-    const results = createResultList(root, {
-      label: '암호화 결과',
+    const results = createResultList(encryptRow, {
       /*
        * 복사 버튼은 **ENC(...) 쪽을 복사한다.** 두 줄을 이어붙여 복사하면 그대로
        * 설정 파일에 붙였을 때 깨지는 값이 되고, 이 도구에서 가장 위험한 것이
        * 정확히 "설정 파일에 넣었는데 배포 시점에 터지는 값" 이다.
+       *
+       * 그 사실을 머리말이 말한다. 컴포넌트는 머리말 하나에 복사 버튼 하나를
+       * 두므로(항목별 버튼은 없다), 무엇이 복사되는지 화면에 적히지 않으면
+       * 사용자는 두 줄이 다 복사된다고 믿을 수밖에 없다. e2e 가 이 문구와 실제
+       * 복사 내용을 **함께** 고정한다 — 문구만 재면 동작이 바뀌었을 때 머리말이
+       * 거짓말을 하게 되기 때문이다.
        */
+      label: '암호화 결과 · 복사는 ENC(...)',
       getCopyText: () => encrypted?.enc ?? '',
       emptyHint: EMPTY_HINT,
     });
@@ -168,6 +186,7 @@ const mod: ToolModule = {
       algorithm.remove();
       decryptHeading.remove();
       encryptHeading.remove();
+      encryptRow.remove();
     };
   },
 };

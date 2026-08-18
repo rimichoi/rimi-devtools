@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { DECRYPT_FAILED_ERROR, NON_ASCII_PASSWORD_ERROR } from '../src/tools/jasypt/logic';
 
 /**
  * Jasypt 도구의 브라우저 계약.
@@ -126,9 +127,7 @@ test('틀린 비밀번호는 결과 칸을 비우고 지정된 문구를 띄운�
   // 이 도구의 가장 위험한 오동작이 "틀린 비밀번호인데 결과가 나온 것처럼 보이는
   // 것" 이다. 쓰레기 바이트도, 이전 결과도 남아 있으면 안 된다.
   await expect(decryptOutput).toHaveValue('');
-  await expect(decryptError).toHaveText(
-    '복호화에 실패했습니다. 마스터 비밀번호가 다르거나, 이 도구가 지원하는 형식(PBEWithMD5AndDES)이 아닙니다.',
-  );
+  await expect(decryptError).toHaveText(DECRYPT_FAILED_ERROR);
 });
 
 test('Java 가 거부하는 비ASCII 비밀번호는 계산하지 않고 거부한다', async ({ page }) => {
@@ -139,13 +138,12 @@ test('Java 가 거부하는 비ASCII 비밀번호는 계산하지 않고 거부�
   await decryptInput.fill(ENC_ROOT);
   await encryptInput.fill('root');
 
-  const expected =
-    '마스터 비밀번호에 출력 가능 ASCII(공백 ~ ~) 밖의 문자가 있습니다. ' +
-    'Java 의 PBEWithMD5AndDES 가 이 비밀번호를 거부하므로, 여기서 만든 값도 Java 에서 풀 수 없습니다.';
-  await expect(decryptError).toHaveText(expected);
+  // 문구 자체는 logic.test.ts 가 글자 그대로 고정한다. 여기서 다시 타이핑하면
+  // 같은 문자열이 세 곳에 흩어져, 고칠 때 한 곳만 남기 쉽다.
+  await expect(decryptError).toHaveText(NON_ASCII_PASSWORD_ERROR);
   await expect(decryptOutput).toHaveValue('');
   // 암호화 쪽도 같다 — 풀 수 없는 값을 만들어 놓고 성공한 척하면 안 된다.
-  await expect(resultsError).toHaveText(expected);
+  await expect(resultsError).toHaveText(NON_ASCII_PASSWORD_ERROR);
 });
 
 test('base64 가 아닌 입력은 그 세트에만 base64 문구로 뜬다', async ({ page }) => {
@@ -177,6 +175,84 @@ test('암호화 결과는 설정 파일용 ENC(...) 과 base64 두 줄이고, �
   // 브라우저에서 만든 값을 브라우저에서 되돌려 푼다 — 배선까지 포함한 왕복이다.
   await decryptInput.fill(enc);
   await expect(decryptOutput).toHaveValue('jdbc:mysql://db.internal:3306/app');
+});
+
+/*
+ * 결과 카드는 머리말 하나에 복사 버튼 하나를 갖는다(공용 컴포넌트에 항목별 복사
+ * 버튼은 없고, 이 도구 하나를 위해 공용 컴포넌트에 옵션을 더하지 않는다). 그러면
+ * 두 줄 중 무엇이 복사되는지 화면에 적혀 있어야 한다 — 설정 파일에 붙일 것은
+ * ENC(...) 쪽이고, 두 줄을 이어붙인 값은 붙이는 순간 깨진다.
+ *
+ * 문구와 실제 복사 내용을 **함께** 고정한다. 문구만 재면 동작이 바뀌었을 때
+ * 머리말이 거짓말을 하게 되고, 동작만 재면 화면에서 그 사실이 사라진 것을 놓친다.
+ */
+test('결과 머리말이 복사 대상을 말하고, 복사 버튼이 실제로 그것을 복사한다', async ({
+  page,
+}) => {
+  // 클립보드 권한에 기대지 않는다. writeText 를 가로채면 헤드리스에서도 결정적이다.
+  await page.addInitScript(() => {
+    const copied: string[] = [];
+    Object.defineProperty(window, '__copied', { value: copied });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText(text: string) {
+          copied.push(text);
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  await page.reload();
+
+  const { password, encryptInput, results } = ui(page);
+  await password.fill('test1!');
+  await encryptInput.fill('my-db-password');
+
+  const head = page.locator('#tool-root .result-list-wrap .io-output-head label');
+  await expect(head).toHaveText('암호화 결과 · 복사는 ENC(...)');
+
+  const enc = (await results.locator('dd').nth(0).textContent()) ?? '';
+  const base64 = (await results.locator('dd').nth(1).textContent()) ?? '';
+  expect(enc).toBe(`ENC(${base64})`);
+
+  await page.locator('#tool-root .result-list-wrap .io-output-head button').click();
+
+  const copied = await page.evaluate(() => (window as unknown as { __copied: string[] }).__copied);
+  // 머리말이 약속한 그대로여야 한다: ENC(...) 한 줄. 두 줄을 이어붙인 값이 아니다.
+  expect(copied).toEqual([enc]);
+  expect(copied[0]).not.toContain('base64');
+  expect(copied[0]).not.toContain('\n');
+});
+
+/*
+ * F-1 회귀 방지. 결과 카드가 하나뿐인 이 세트를 세로로 쌓으면 전폭 입력창 아래에
+ * 카드 하나만 남고 오른쪽 절반이 빈다(바로 위 복호화 세트는 균형 잡힌 2열이다).
+ * 클래스 이름이 아니라 실제로 그려진 위치로 잰다.
+ */
+test('넓은 화면에서 암호화 입력과 결과가 같은 줄에 나란히 놓인다', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const { password, encryptInput, results } = ui(page);
+  await password.fill('test1!');
+  await encryptInput.fill('my-db-password');
+  await expect(results).toHaveJSProperty('hidden', false);
+
+  const inputBox = await page.locator('#tool-root .jasypt-encrypt-row .io-pane').boundingBox();
+  const resultBox = await page.locator('#tool-root .result-list-wrap').boundingBox();
+  expect(inputBox, '암호화 입력 카드를 찾지 못했습니다').not.toBeNull();
+  expect(resultBox, '결과 카드를 찾지 못했습니다').not.toBeNull();
+
+  // 결과 카드는 입력 오른쪽에 있고, 세로로는 겹친다(= 같은 줄이다).
+  expect(resultBox!.x).toBeGreaterThan(inputBox!.x + inputBox!.width - 1);
+  expect(resultBox!.y).toBeLessThan(inputBox!.y + inputBox!.height);
+
+  // 그리고 오른쪽 절반을 비워 두지 않는다 — 두 카드가 폭을 나눠 갖는다.
+  const row = await page.locator('#tool-root .jasypt-encrypt-row').boundingBox();
+  expect(resultBox!.width).toBeGreaterThan(row!.width * 0.4);
+
+  // 설정값 하나 넣는 칸이 화면 3분의 1을 차지하지 않는다.
+  const textarea = await encryptInput.boundingBox();
+  expect(textarea!.height).toBeLessThan(250);
 });
 
 test('같은 평문을 두 번 암호화하면 값이 달라진다 (RandomSalt)', async ({ page }) => {

@@ -28,6 +28,28 @@ function expectError(result: { ok: true } | { ok: false; error: string }): strin
   return result.error;
 }
 
+/*
+ * 문구 자체를 여기 한 곳에서만 글자 그대로 고정한다. 나머지 테스트(그리고 e2e)는
+ * 상수를 import 해 대조하므로, 문구를 고치면 이 파일 한 곳만 고치면 된다 — 그리고
+ * 이 테스트가 없으면 "상수와 상수를 비교" 하는 셈이라 어떤 문구로 바꿔도 전부
+ * 초록이다(이 저장소가 그런 테스트를 다섯 번 머지한 이력이 있다).
+ */
+describe('사용자에게 보이는 문구', () => {
+  it('비ASCII 거부 문구는 허용 범위를 사람이 읽을 수 있게 적는다', () => {
+    // '(공백 ~ ~)' 처럼 물결표가 구분자와 경계 문자를 동시에 맡으면 읽히지 않는다.
+    expect(NON_ASCII_PASSWORD_ERROR).toBe(
+      '마스터 비밀번호에 출력 가능 ASCII(공백부터 물결표 ~ 까지) 밖의 문자가 있습니다. ' +
+        'Java 의 PBEWithMD5AndDES 가 이 비밀번호를 거부하므로, 여기서 만든 값도 Java 에서 풀 수 없습니다.',
+    );
+  });
+
+  it('복호화 실패 문구는 원인 두 가지를 모두 말한다', () => {
+    expect(DECRYPT_FAILED_ERROR).toBe(
+      '복호화에 실패했습니다. 마스터 비밀번호가 다르거나, 이 도구가 지원하는 형식(PBEWithMD5AndDES)이 아닙니다.',
+    );
+  });
+});
+
 describe('마스터 비밀번호 → 바이트', () => {
   it('문자당 1바이트, 코드포인트 그대로다 (UTF-8 인코딩이 아니다)', () => {
     expect(bytesToHex(passwordToBytes('test1!')!)).toBe('746573743121');
