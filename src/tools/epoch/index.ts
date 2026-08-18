@@ -1,8 +1,8 @@
 import type { ToolModule } from '../../types';
 import { createSelect } from '../../ui/select';
-import { createIOPane } from '../../ui/ioPane';
 import { createNumberForm } from '../../ui/numberForm';
-import { fromEpoch, toEpoch, formatEpochInfo, type EpochUnit, type TimeZone } from './logic';
+import { createResultList } from '../../ui/resultList';
+import { fromEpoch, toEpoch, formatEpochInfo, type EpochInfo, type EpochUnit, type TimeZone } from './logic';
 
 const mod: ToolModule = {
   mount(root) {
@@ -12,16 +12,61 @@ const mod: ToolModule = {
       ['milliseconds', '밀리초로 해석'],
     ]);
 
-    const pane = createIOPane(root, {
-      controls: [unit],
-      inputLabel: '타임스탬프',
-      outputLabel: '변환 결과',
-      placeholder: '1700000000',
-      transform(input) {
-        const result = fromEpoch(input, unit.value as EpochUnit | 'auto', new Date());
-        return result.ok ? { ok: true, value: { text: formatEpochInfo(result.value) } } : result;
-      },
+    const unitBar = document.createElement('div');
+    unitBar.className = 'io-controls';
+    unitBar.append(unit);
+    root.append(unitBar);
+
+    let lastInfo: EpochInfo | undefined;
+
+    const forwardForm = createNumberForm(
+      root,
+      [{ key: 'timestamp', label: '타임스탬프', placeholder: '1700000000' }],
+      runForward,
+    );
+
+    const result = createResultList(root, {
+      label: '변환 결과',
+      getCopyText: () => (lastInfo ? formatEpochInfo(lastInfo) : ''),
+      emptyHint: '타임스탬프를 입력하면 변환 결과가 여기 표시됩니다.',
     });
+
+    function runForward(): void {
+      const { timestamp = '' } = forwardForm.values();
+      if (timestamp.trim() === '') {
+        lastInfo = undefined;
+        result.setRows([]);
+        return;
+      }
+
+      const outcome = fromEpoch(timestamp, unit.value as EpochUnit | 'auto', new Date());
+      if (!outcome.ok) {
+        lastInfo = undefined;
+        result.setError(outcome.error);
+        return;
+      }
+
+      lastInfo = outcome.value;
+      result.setRows([
+        { label: '입력 단위', value: outcome.value.unit === 'seconds' ? '초' : '밀리초' },
+        { label: 'UTC', value: outcome.value.utc },
+        { label: 'KST +09:00', value: outcome.value.kst },
+        { label: 'ISO 8601', value: outcome.value.iso },
+        { label: '초', value: String(outcome.value.epochSeconds) },
+        { label: '밀리초', value: String(outcome.value.epochMillis) },
+        { label: '상대 시각', value: outcome.value.relative },
+      ]);
+    }
+
+    unit.addEventListener('change', runForward);
+
+    const nowButton = document.createElement('button');
+    nowButton.type = 'button';
+    nowButton.textContent = '현재 시각 넣기';
+    nowButton.addEventListener('click', () => {
+      forwardForm.setValue('timestamp', String(Math.floor(Date.now() / 1000)));
+    });
+    unitBar.append(nowButton);
 
     const divider = document.createElement('h3');
     divider.textContent = '날짜 → 타임스탬프';
@@ -37,42 +82,35 @@ const mod: ToolModule = {
     zoneBar.append(zone);
     root.append(zoneBar);
 
-    const form = createNumberForm(
+    const reverseForm = createNumberForm(
       root,
       [{ key: 'datetime', label: '날짜와 시각', placeholder: '2023-11-15 07:13:20' }],
       runReverse,
     );
 
     function runReverse(): void {
-      const { datetime = '' } = form.values();
+      const { datetime = '' } = reverseForm.values();
       if (datetime.trim() === '') {
-        form.setResult('');
+        reverseForm.setResult('');
         return;
       }
-      const result = toEpoch(datetime, zone.value as TimeZone);
-      if (!result.ok) {
-        form.setError(result.error);
+      const outcome = toEpoch(datetime, zone.value as TimeZone);
+      if (!outcome.ok) {
+        reverseForm.setError(outcome.error);
         return;
       }
-      form.setResult(`초 ${result.value.seconds}  /  밀리초 ${result.value.millis}`);
+      reverseForm.setResult(`초 ${outcome.value.seconds}  /  밀리초 ${outcome.value.millis}`);
     }
 
     zone.addEventListener('change', runReverse);
 
-    const nowButton = document.createElement('button');
-    nowButton.type = 'button';
-    nowButton.textContent = '현재 시각 넣기';
-    nowButton.addEventListener('click', () => {
-      pane.setInput(String(Math.floor(Date.now() / 1000)));
-    });
-    zoneBar.append(nowButton);
-
-
     return () => {
-      pane.destroy();
+      unitBar.remove();
+      forwardForm.destroy();
+      result.destroy();
       divider.remove();
       zoneBar.remove();
-      form.destroy();
+      reverseForm.destroy();
     };
   },
 };
