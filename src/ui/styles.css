@@ -73,12 +73,13 @@ textarea, input, select, button {
 }
 
 .io-pane { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.io-pane.io-pane-3col { grid-template-columns: 1fr 1fr 1fr; }
 .io-pane textarea { width: 100%; min-height: 60vh; resize: vertical; }
 .io-error { color: var(--error); white-space: pre-wrap; margin-top: 8px; }
 .io-warn { color: var(--warn); white-space: pre-wrap; margin-top: 8px; }
 
 @media (max-width: 860px) {
-  .io-pane { grid-template-columns: 1fr; }
+  .io-pane, .io-pane.io-pane-3col { grid-template-columns: 1fr; }
 }
 
 .result-list-wrap { max-width: 620px; }

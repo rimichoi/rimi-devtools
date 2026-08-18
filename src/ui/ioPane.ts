@@ -1,6 +1,15 @@
 import type { ToolResult } from '../types';
 import { createCopyButton } from './copyButton';
 
+/**
+ * 컴포넌트 선택 규칙: `IOPane` 은 대량 텍스트 페이로드(붙여넣는 문서, 여러 줄
+ * JSON/SQL 등)를 위한 것이다. 스칼라 값 하나를 받는 입력에는 단일 줄 필드
+ * (`numberForm.ts`)를, 파일을 받는 입력에는 드롭존(`dropZone.ts`)을 쓴다.
+ * 결과가 텍스트 한 덩어리가 아니라 여러 필드로 구조화돼 있다면(`resultList.ts`)
+ * 참고 — 구조화된 값을 문자열로 뭉쳐 textarea 에 욱여넣지 않는다. epoch 도구가
+ * 정확히 이 규칙을 어겨서(10글자짜리 타임스탬프에 textarea 를 썼다) 생긴 결함을
+ * 고치며 이 규칙을 적어 둔다.
+ */
 export interface TransformOutput {
   text: string;
   /** 결과는 정상이지만 사용자에게 알려야 하는 주의 사항 */
@@ -13,7 +22,14 @@ export interface IOPaneOptions {
   placeholder?: string;
   /** 입력창 위에 놓을 컨트롤 (셀렉트, 체크박스 등) */
   controls?: HTMLElement[];
-  transform: (input: string) => ToolResult<TransformOutput>;
+  /**
+   * 두 번째로 편집 가능한 텍스트 입력이 필요한 도구용(예: JSON 비교의 왼쪽/오른쪽).
+   * 지정하면 pane 이 입력 두 개 + 결과 3열이 되고, 두 입력 중 하나라도 비어 있는
+   * 동안에는(둘 다 채워지기 전) transform 을 부르지 않는다 — 한쪽만 입력한 순간
+   * "다른 쪽을 입력하세요" 류의 하드 에러가 뜨는 것을 막기 위함이다.
+   */
+  secondInput?: { label?: string; placeholder?: string };
+  transform: (input: string, secondInput?: string) => ToolResult<TransformOutput>;
 }
 
 export interface IOPaneHandle {
@@ -33,7 +49,7 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
   }
 
   const pane = document.createElement('div');
-  pane.className = 'io-pane';
+  pane.className = options.secondInput ? 'io-pane io-pane-3col' : 'io-pane';
 
   const inputBox = document.createElement('div');
   const inputLabel = document.createElement('label');
@@ -42,6 +58,18 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
   input.placeholder = options.placeholder ?? '';
   input.spellcheck = false;
   inputBox.append(inputLabel, input);
+
+  let secondBox: HTMLDivElement | undefined;
+  let secondInputEl: HTMLTextAreaElement | undefined;
+  if (options.secondInput) {
+    secondBox = document.createElement('div');
+    const secondLabel = document.createElement('label');
+    secondLabel.textContent = options.secondInput.label ?? '입력 2';
+    secondInputEl = document.createElement('textarea');
+    secondInputEl.placeholder = options.secondInput.placeholder ?? '';
+    secondInputEl.spellcheck = false;
+    secondBox.append(secondLabel, secondInputEl);
+  }
 
   const outputBox = document.createElement('div');
   const outputHead = document.createElement('div');
@@ -60,7 +88,7 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
   warn.className = 'io-warn';
   outputBox.append(error, warn);
 
-  pane.append(inputBox, outputBox);
+  pane.append(inputBox, ...(secondBox ? [secondBox] : []), outputBox);
   wrap.append(pane);
   root.append(wrap);
 
@@ -68,7 +96,9 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     error.textContent = '';
     warn.textContent = '';
 
-    if (input.value.trim() === '') {
+    const primaryEmpty = input.value.trim() === '';
+    const secondaryEmpty = secondInputEl ? secondInputEl.value.trim() === '' : false;
+    if (primaryEmpty || secondaryEmpty) {
       output.value = '';
       return;
     }
@@ -78,7 +108,7 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     // 화면에 남는 최악의 실패 모드를 막기 위한 안전망으로 감싼다.
     let result: ToolResult<TransformOutput>;
     try {
-      result = options.transform(input.value);
+      result = options.transform(input.value, secondInputEl?.value);
     } catch (err) {
       output.value = '';
       error.textContent = err instanceof Error ? err.message : String(err);
@@ -97,6 +127,7 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
   const controlListeners = new Map<HTMLElement, (e: Event) => void>();
 
   input.addEventListener('input', run);
+  secondInputEl?.addEventListener('input', run);
   for (const control of options.controls ?? []) {
     const listener = run as unknown as (e: Event) => void;
     control.addEventListener('change', listener);
