@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import {
   DECRYPT_FAILED_ERROR,
   KEY_OBTENTION_ITERATIONS,
@@ -130,13 +131,41 @@ describe('키 유도 (PBKDF1-MD5)', () => {
     );
   });
 
-  it('1회 반복은 MD5(비밀번호 || salt) 그 자체다', () => {
-    // 첫 회만 비밀번호+salt 를 먹인다는 규칙을 고정한다.
-    const derived = deriveKey(passwordToBytes('test1!')!, hexToBytes('c58233b148a282bd'), 1);
-    // md5("test1!" + salt 8바이트) — node:crypto 로 대조하는 md5.test.ts 가 md5 자체를
-    // 이미 보증하므로, 여기서는 "무엇을 먹이는가"만 본다.
-    expect(derived.dk.length).toBe(16);
-    expect(bytesToHex(derived.dk)).not.toBe('9ee7a0dbb982ae1e7d56834fe75fefce');
+  /*
+   * 아래 두 건은 "무엇을 먹이는가" 를 node:crypto 오라클로 직접 대조한다.
+   *
+   * 예전에는 `dk.length === 16` 과 `dk !== (1000회 값)` 만 보고 있었다. 둘 다
+   * 항진명제다 — MD5 다이제스트는 언제나 16바이트이고, 1회 값이 1000회 값과
+   * 같을 리도 없다. 실제로 seed 를 `salt || 비밀번호` 로 뒤집어도 그 테스트는
+   * 통과했다. 이름이 약속한 것을 하나도 재지 못하면서 재는 것처럼 보이는 테스트는
+   * 없는 것보다 나쁘다.
+   */
+  it('1회 반복은 MD5(비밀번호 바이트 || salt) 그 자체다', () => {
+    const passwordBytes = passwordToBytes('test1!')!;
+    const salt = hexToBytes('c58233b148a282bd');
+
+    // 붙이는 순서까지 못 박는다: 비밀번호가 앞, salt 가 뒤다.
+    const seed = new Uint8Array(passwordBytes.length + salt.length);
+    seed.set(passwordBytes);
+    seed.set(salt, passwordBytes.length);
+
+    expect(bytesToHex(deriveKey(passwordBytes, salt, 1).dk)).toBe(
+      createHash('md5').update(seed).digest('hex'),
+    );
+  });
+
+  it('2회째부터는 직전 다이제스트만 먹는다 — 비밀번호와 salt 를 다시 붙이지 않는다', () => {
+    const passwordBytes = passwordToBytes('test1!')!;
+    const salt = hexToBytes('c58233b148a282bd');
+
+    const seed = new Uint8Array(passwordBytes.length + salt.length);
+    seed.set(passwordBytes);
+    seed.set(salt, passwordBytes.length);
+
+    const first = createHash('md5').update(seed).digest();
+    const second = createHash('md5').update(first).digest('hex');
+
+    expect(bytesToHex(deriveKey(passwordBytes, salt, 2).dk)).toBe(second);
   });
 
   it('salt 가 다르면 키도 달라진다', () => {

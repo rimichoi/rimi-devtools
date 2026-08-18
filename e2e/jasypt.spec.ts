@@ -316,14 +316,31 @@ test('보기/숨기기 토글이 상태를 문구와 aria-pressed 로 알린다'
  * 값들 **어디에도 비밀번호와 평문이 없다** 로 잰다.
  */
 test('마스터 비밀번호와 값이 저장소·URL 어디에도 남지 않는다', async ({ page }) => {
-  const { password, decryptInput, encryptInput, decryptOutput } = ui(page);
+  const { password, decryptInput, decryptError, encryptInput, results } = ui(page);
 
   const secret = 'super-secret-master-key';
-  await password.fill(secret);
+  /*
+   * 순서가 중요하다. 비밀번호를 **마지막에** 넣어야 두 세트를 실제로 돌린 것이
+   * 비밀번호 입력의 recompute 리스너임이 드러난다. 비밀번호를 먼저 넣으면 각
+   * textarea 의 자기 input 이벤트만으로 계산이 돌아서, 리스너가 통째로 빠져도
+   * 화면이 똑같아 보인다.
+   */
   await decryptInput.fill(ENC_ROOT);
   await encryptInput.fill('plaintext-payload');
-  // 계산이 실제로 돌았다는 것을 확인한 뒤에 판정한다.
-  await expect(decryptOutput).toHaveValue('');
+  await password.fill(secret);
+
+  /*
+   * 아무것도 계산되지 않은 화면을 재고 통과하는 일을 막는 관문이다. 예전에는
+   * `decryptOutput` 이 비었는지만 봤는데, 그건 **첫 화면의 모습과 구분되지 않는다** —
+   * 실제로 recompute 리스너를 지워도 이 테스트가 초록이었다.
+   *
+   * 아래 둘은 비밀번호를 넣은 뒤에야 참이 된다:
+   *  - 복호화: secret 은 ENC_ROOT 의 열쇠가 아니므로 실패 문구가 떠야 한다.
+   *  - 암호화: 비밀번호가 비어 있는 동안에는 결과 목록이 숨어 있다.
+   */
+  await expect(decryptError).toHaveText(DECRYPT_FAILED_ERROR);
+  await expect(results).toHaveJSProperty('hidden', false);
+  await expect(results.locator('dd').nth(0)).toContainText('ENC(');
 
   const stored = await page.evaluate(() => {
     const dump = (storage: Storage): string[] => {
