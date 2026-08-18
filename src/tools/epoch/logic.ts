@@ -117,8 +117,15 @@ export function toEpoch(
   const minute = Number(mi);
   const second = Number(s ?? '0');
 
-  const utcMillis = Date.UTC(year, month - 1, day, hour, minute, second);
-  const check = new Date(utcMillis);
+  const check = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  /*
+   * Date.UTC 는 0~99 를 1900년대로 옮긴다 — Date.UTC(23, ...) 은 1923년이다. 그
+   * 채로 아래 되돌림 검사에 넣으면 `0023-11-15 07:13:20` 이라는 **정상적인 날짜**가
+   * '존재하지 않는 날짜' 라는 틀린 오류를 받는다. 마스크가 네 자리 연도를 그대로
+   * 통과시키므로 실제로 칠 수 있는 입력이다.
+   */
+  if (year >= 0 && year <= 99) check.setUTCFullYear(year);
+  const utcMillis = check.getTime();
 
   // Date.UTC 는 2023-02-30 을 3월 2일로 롤오버한다. 되돌려서 일치하는지 본다.
   if (

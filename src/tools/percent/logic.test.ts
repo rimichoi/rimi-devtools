@@ -55,3 +55,36 @@ describe('calcPercent - 공통', () => {
     expect(calcPercent('partOf', 10, 0.3)).toEqual({ ok: true, value: 0.03 });
   });
 });
+
+describe('calcPercent 방어 — 결과가 넘치는 경우', () => {
+  /*
+   * 입력이 둘 다 유한해도 결과는 넘칠 수 있다. 막지 않으면 tidy 를 통과한 Infinity
+   * 가 `toLocaleString('ko-KR')` 을 거쳐 화면에 '∞' 로 뜬다 — 답이 아닌 것을 답의
+   * 자리에 놓는 것이 이 층이 막아야 하는 부류의 실패다. 화면의 숫자 마스크는 여기에
+   * 아무 도움이 되지 않는다: 1e308 은 마스크를 통과하는 정상적인 숫자 문자열이다.
+   */
+  const HUGE = 1e308;
+
+  it('applyChange 의 결과가 넘치면 한국어 오류다', () => {
+    const r = calcPercent('applyChange', HUGE, HUGE);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('너무 커서');
+  });
+
+  it('partOf 의 결과가 넘치면 한국어 오류다', () => {
+    expect(calcPercent('partOf', HUGE, HUGE).ok).toBe(false);
+  });
+
+  it('ratio 의 결과가 넘치면 한국어 오류다', () => {
+    expect(calcPercent('ratio', HUGE, 1e-308).ok).toBe(false);
+  });
+
+  it('change 의 결과가 넘치면 한국어 오류다', () => {
+    expect(calcPercent('change', 1e-308, HUGE).ok).toBe(false);
+  });
+
+  it('넘침 검사가 큰 정상 입력을 막지 않는다', () => {
+    expect(calcPercent('ratio', HUGE, HUGE)).toEqual({ ok: true, value: 100 });
+    expect(calcPercent('applyChange', 1e300, 100)).toEqual({ ok: true, value: 2e300 });
+  });
+});

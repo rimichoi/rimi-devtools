@@ -8,6 +8,9 @@ export interface DateDiff {
 
 const DURATION_RE = /^(\d+):([0-5]\d)(?::([0-5]\d))?$/;
 
+/** 초 단위 지속 시간이 정확히 계산·형식화될 수 있는 범위인지. */
+const TOO_LARGE = '시간이 너무 커서 정확히 계산할 수 없습니다.';
+
 export function parseDuration(text: string): ToolResult<number> {
   const m = DURATION_RE.exec(text.trim());
   if (!m) {
@@ -21,6 +24,14 @@ export function parseDuration(text: string): ToolResult<number> {
         Number(first) * 60 + Number(second)
       : Number(first) * 3600 + Number(second) * 60 + Number(third);
 
+  /*
+   * 시 자리는 `\d+` 라 자리수가 열려 있다. 화면의 마스크가 10자리로 자르든 말든
+   * 이 층은 스스로 방어한다 — 필터는 편의지 경계가 아니다. 그리고 여기서 막지
+   * 않으면 실제로 새어 나가는 값이 있었다: 400자리 숫자는 `Number()` 에서
+   * Infinity 가 되고, formatDuration 이 그것을 `Infinity:NaN:NaN` 이라는 '결과'
+   * 로 화면에 띄운다(Infinity % 3600 = NaN).
+   */
+  if (!Number.isSafeInteger(seconds)) return { ok: false, error: TOO_LARGE };
   return { ok: true, value: seconds };
 }
 
@@ -41,6 +52,9 @@ export function addDuration(a: string, b: string, op: '+' | '-'): ToolResult<str
   if (!right.ok) return right;
 
   const total = op === '+' ? left.value + right.value : left.value - right.value;
+  // 안전 정수 둘의 합은 안전 정수가 아닐 수 있다(최대 2배까지 커진다). 넘어가면
+  // formatDuration 의 나눗셈이 정확하지 않은 답을 자신 있게 내놓는다.
+  if (!Number.isSafeInteger(total)) return { ok: false, error: TOO_LARGE };
   return { ok: true, value: formatDuration(total) };
 }
 

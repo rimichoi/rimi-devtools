@@ -136,3 +136,35 @@ describe('toEpoch', () => {
     expect(toEpoch('2023-02-29 00:00:00', 'utc').ok).toBe(false);
   });
 });
+
+describe('toEpoch 방어 — 두 자리 이하 연도', () => {
+  /*
+   * Date.UTC 는 0~99 를 1900년대로 옮긴다 — Date.UTC(23, 10, 15) 는 1923년이다.
+   * 되돌림 검사에 그대로 넣으면 `0023-11-15 07:13:20` 이라는 **정상적인 날짜**가
+   * '존재하지 않는 날짜' 라는 틀린 오류를 받는다. 마스크가 네 자리 연도를 그대로
+   * 통과시키므로 실제로 칠 수 있는 입력이다.
+   */
+  it('연도 0023 을 1923 으로 오해하지 않는다', () => {
+    const r = toEpoch('0023-11-15 07:13:20', 'utc');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // 되돌려 보면 같은 날짜여야 한다.
+      expect(new Date(r.value.millis).toISOString()).toBe('0023-11-15T07:13:20.000Z');
+    }
+  });
+
+  it('연도 0099 도 통과한다', () => {
+    expect(toEpoch('0099-01-01 00:00:00', 'utc').ok).toBe(true);
+  });
+
+  it('두 자리 이하 연도에서도 존재하지 않는 날짜는 여전히 막는다', () => {
+    expect(toEpoch('0023-02-30 00:00:00', 'utc').ok).toBe(false);
+  });
+
+  it('네 자리 연도의 정상 동작은 그대로다', () => {
+    expect(toEpoch('2023-11-15 07:13:20', 'kst')).toEqual({
+      ok: true,
+      value: { seconds: 1700000000, millis: 1700000000000 },
+    });
+  });
+});

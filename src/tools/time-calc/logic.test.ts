@@ -174,3 +174,43 @@ describe('shiftDate 방어', () => {
     expect(shiftDate('9999-12-31', 1).ok).toBe(false);
   });
 });
+
+describe('parseDuration 방어', () => {
+  /*
+   * 시 자리(`\d+`)는 자리수가 열려 있다. 화면의 마스크가 무엇을 걸러 주든 이 층은
+   * 스스로 방어해야 한다 — 필터는 편의지 경계가 아니다. 막지 않으면 실제로 새어
+   * 나가는 값이 있었다: Number() 가 Infinity 가 되면 formatDuration 의
+   * `Infinity % 3600` 이 NaN 이 되어 `Infinity:NaN:NaN` 이 '결과' 로 화면에 뜬다.
+   */
+  it('Number() 가 Infinity 가 되는 자리수를 막는다', () => {
+    const huge = '9'.repeat(400);
+    const r = parseDuration(`${huge}:00:00`);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('너무 커서');
+  });
+
+  it('안전 정수 범위를 넘기는 시간을 막는다', () => {
+    const r = parseDuration('9999999999999999:00:00');
+    expect(r.ok).toBe(false);
+  });
+
+  it('범위 검사가 정상 입력을 막지 않는다', () => {
+    expect(parseDuration('100:00:00')).toEqual({ ok: true, value: 360000 });
+    expect(parseDuration('999999:59:59')).toEqual({ ok: true, value: 3599999999 });
+  });
+
+  it('addDuration 이 Infinity:NaN:NaN 대신 한국어 오류를 돌려준다', () => {
+    const huge = '9'.repeat(400);
+    const r = addDuration(`${huge}:00:00`, '00:00:01', '+');
+    expect(r.ok).toBe(false);
+    if (r.ok) expect(r.value).not.toContain('NaN');
+  });
+
+  it('합이 안전 정수 범위를 넘기면 막는다 (각각은 범위 안이다)', () => {
+    const half = String(Math.floor(Number.MAX_SAFE_INTEGER / 3600));
+    expect(parseDuration(`${half}:00:00`).ok).toBe(true);
+    const r = addDuration(`${half}:00:00`, `${half}:00:00`, '+');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('너무 커서');
+  });
+});
