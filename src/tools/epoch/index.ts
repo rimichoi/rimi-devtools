@@ -85,24 +85,44 @@ const mod: ToolModule = {
     zoneBar.append(zone);
     root.append(zoneBar);
 
+    // 위 방향과 마찬가지로 결과·오류는 전적으로 아래 ResultList 가 그린다.
     const reverseForm = createNumberForm(
       root,
       [{ key: 'datetime', label: '날짜와 시각', placeholder: '2023-11-15 07:13:20' }],
       runReverse,
+      { result: false },
     );
+
+    let lastReverse: { seconds: number; millis: number } | undefined;
+
+    // 같은 화면의 같은 종류의 답(타임스탬프)인데, 이 방향만 한 줄 문자열
+    // (`초 … / 밀리초 …`)로 뭉쳐 보여주고 있었다. 위 방향과 같은 ResultList 로
+    // 맞춰 초/밀리초를 각각 라벨 붙은 행으로 낸다.
+    const reverseResult = createResultList(root, {
+      label: '변환 결과',
+      getCopyText: () =>
+        lastReverse ? `초         ${lastReverse.seconds}\n밀리초     ${lastReverse.millis}` : '',
+      emptyHint: '날짜와 시각을 입력하면 타임스탬프가 여기 표시됩니다.',
+    });
 
     function runReverse(): void {
       const { datetime = '' } = reverseForm.values();
       if (datetime.trim() === '') {
-        reverseForm.setResult('');
+        lastReverse = undefined;
+        reverseResult.setRows([]);
         return;
       }
       const outcome = toEpoch(datetime, zone.value as TimeZone);
       if (!outcome.ok) {
-        reverseForm.setError(outcome.error);
+        lastReverse = undefined;
+        reverseResult.setError(outcome.error);
         return;
       }
-      reverseForm.setResult(`초 ${outcome.value.seconds}  /  밀리초 ${outcome.value.millis}`);
+      lastReverse = outcome.value;
+      reverseResult.setRows([
+        { label: '초', value: String(outcome.value.seconds) },
+        { label: '밀리초', value: String(outcome.value.millis) },
+      ]);
     }
 
     zone.addEventListener('change', runReverse);
@@ -114,6 +134,7 @@ const mod: ToolModule = {
       divider.remove();
       zoneBar.remove();
       reverseForm.destroy();
+      reverseResult.destroy();
     };
   },
 };
