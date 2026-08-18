@@ -6,6 +6,8 @@ export interface NumberFormField {
 
 export interface NumberFormHandle {
   values(): Record<string, string>;
+  /** 필드 값을 프로그램으로 채우고 onChange 를 부른다(IOPane 의 setInput 과 대응). */
+  setValue(key: string, value: string): void;
   setLabel(key: string, label: string): void;
   setResult(text: string): void;
   setError(text: string): void;
@@ -50,6 +52,12 @@ export function createNumberForm(
       const out: Record<string, string> = {};
       for (const [key, input] of inputs) out[key] = input.value;
       return out;
+    },
+    setValue(key, value) {
+      const el = inputs.get(key);
+      if (!el) return;
+      el.value = value;
+      onChange();
     },
     setLabel(key, label) {
       const el = labels.get(key);
