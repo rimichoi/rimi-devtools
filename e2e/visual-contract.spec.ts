@@ -232,6 +232,168 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
       expect(failures, `대비 미달 ${failures.length}건:\n${failures.join('\n')}`).toEqual([]);
     });
+
+    /*
+     * WCAG 1.4.11 (비텍스트 대비 3:1). 스타일시트의 테두리 대비 규칙 — "사용자가
+     * 타이핑할 수 있는 표면의 경계는 --border-strong, 내용을 묶기만 하는 컨테이너는
+     * --border" — 을 실측으로 고정한다.
+     *
+     * 이 규칙은 한 번 조용히 어긋난 적이 있다. 단일 줄 input 은 --border-strong
+     * (3.6:1)이었는데 textarea 를 감싼 패널 카드는 --border(1.25:1)여서, 같은
+     * 화면에서 "타이핑하는 자리" 가 두 가지 대우를 받고 있었다. 그걸 지켜보는
+     * 테스트가 없었기 때문에 아무것도 빨갛지 않았다.
+     *
+     * 클래스 이름이 아니라 성질로 잰다: '편집 가능한 필드'에서 위로 올라가며 실제로
+     * 테두리를 그리는 첫 상자를 찾아, 그 테두리색을 상자 바깥 배경과 비교한다.
+     * (.io-pane textarea 는 border:0 이고 감싼 카드가 경계를 그린다. 단일 줄 input 은
+     * 자기 자신이 그린다. 어느 쪽이든 사용자 눈에는 '그 칸의 경계'다.)
+     */
+    test('편집 가능한 표면의 경계 대비가 3:1 이상이다', async ({ page }) => {
+      const failures: string[] = [];
+      let measured = 0;
+
+      for (const id of TOOL_IDS) {
+        await page.goto(`/#/${id}`);
+        await expect(page.locator('#tool-root')).not.toBeEmpty();
+        await driveTool(page, id);
+        // 포커스가 남아 있으면 그 칸은 --accent 테두리(5:1 이상)로 그려진다.
+        // 평상시 테두리를 재는 것이 목적이므로 반드시 포커스를 푼다.
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        // 카드 테두리에 90ms transition 이 걸려 있다. 전환이 끝난 뒤 재야
+        // 중간값이 아니라 평상시 색을 잰다.
+        await page.waitForTimeout(150);
+
+        const rows = await measureEditableBorders(page);
+        measured += rows.length;
+        for (const row of rows) {
+          if (row.ratio < 3) {
+            failures.push(
+              `${id} › ${row.el} (경계를 그리는 상자: ${row.box}) ${row.ratio}:1 < 3:1 ` +
+                `border=${row.fg} bg=${row.bg}`,
+            );
+          }
+        }
+      }
+
+      // 셀렉터가 어긋나 아무것도 못 재고 조용히 초록이 되는 것을 막는다.
+      expect(measured, '편집 가능한 표면을 하나도 재지 못했습니다').toBeGreaterThanOrEqual(12);
+      expect(failures, `경계 대비 미달 ${failures.length}건:\n${failures.join('\n')}`).toEqual([]);
+    });
+  });
+}
+
+/**
+ * 편집 가능한 필드마다, 실제로 경계선을 그리는 첫 상자(자기 자신이거나 조상)의
+ * 테두리색을 그 상자 바깥 배경과 비교한 대비를 모아 온다.
+ */
+async function measureEditableBorders(page: Page): Promise<
+  { el: string; box: string; fg: string; bg: string; ratio: number }[]
+> {
+  return page.evaluate(() => {
+    type Rgb = { r: number; g: number; b: number; a: number };
+
+    function parse(color: string): Rgb | null {
+      const m = /rgba?\(([^)]+)\)/.exec(color);
+      if (!m?.[1]) return null;
+      const parts = m[1]
+        .split(/[,\s/]+/)
+        .filter(Boolean)
+        .map(Number);
+      const [r, g, b, a] = parts;
+      if (r === undefined || g === undefined || b === undefined) return null;
+      return { r, g, b, a: a === undefined ? 1 : a };
+    }
+
+    function relativeLuminance({ r, g, b }: Rgb): number {
+      const channel = (v: number) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    }
+
+    function composite(fg: Rgb, bg: Rgb): Rgb {
+      return {
+        r: fg.r * fg.a + bg.r * (1 - fg.a),
+        g: fg.g * fg.a + bg.g * (1 - fg.a),
+        b: fg.b * fg.a + bg.b * (1 - fg.a),
+        a: 1,
+      };
+    }
+
+    function contrast(a: Rgb, b: Rgb): number {
+      const l1 = relativeLuminance(a);
+      const l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    function effectiveBackground(el: Element | null): Rgb {
+      const layers: Rgb[] = [];
+      let cursor: Element | null = el;
+      while (cursor) {
+        const bg = parse(getComputedStyle(cursor).backgroundColor);
+        if (bg && bg.a > 0) {
+          layers.push(bg);
+          if (bg.a >= 1) break;
+        }
+        cursor = cursor.parentElement;
+      }
+      let result: Rgb = { r: 255, g: 255, b: 255, a: 1 };
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i];
+        if (layer) result = composite(layer, result);
+      }
+      return result;
+    }
+
+    function describe(el: Element): string {
+      const cls = typeof el.className === 'string' ? el.className.trim() : '';
+      return el.tagName.toLowerCase() + (cls === '' ? '' : `.${cls.split(/\s+/).join('.')}`);
+    }
+
+    /** 자기 자신부터 위로 올라가며 실제로 눈에 보이는 테두리를 그리는 첫 상자. */
+    function borderedBox(el: Element): Element | null {
+      let cursor: Element | null = el;
+      while (cursor && cursor !== document.body) {
+        const cs = getComputedStyle(cursor);
+        const width = parseFloat(cs.borderTopWidth);
+        const color = parse(cs.borderTopColor);
+        if (width > 0 && cs.borderTopStyle !== 'none' && color && color.a > 0) return cursor;
+        cursor = cursor.parentElement;
+      }
+      return null;
+    }
+
+    const results: { el: string; box: string; fg: string; bg: string; ratio: number }[] = [];
+
+    const fields = document.querySelectorAll(
+      '#tool-root textarea:not([readonly]), #tool-root input:not([readonly])[type="text"]',
+    );
+    for (const field of fields) {
+      const rect = field.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+
+      const box = borderedBox(field);
+      if (!box) {
+        // 경계를 그리는 상자가 아예 없다 = 사용자가 이 칸의 범위를 볼 수 없다.
+        results.push({ el: describe(field), box: '(없음)', fg: 'none', bg: 'none', ratio: 0 });
+        continue;
+      }
+
+      const cs = getComputedStyle(box);
+      const outside = effectiveBackground(box.parentElement);
+      const border = parse(cs.borderTopColor);
+      if (!border) continue;
+      results.push({
+        el: describe(field),
+        box: describe(box),
+        fg: cs.borderTopColor,
+        bg: `rgb(${Math.round(outside.r)}, ${Math.round(outside.g)}, ${Math.round(outside.b)})`,
+        ratio: Math.round(contrast(composite(border, outside), outside) * 100) / 100,
+      });
+    }
+
+    return results;
   });
 }
 

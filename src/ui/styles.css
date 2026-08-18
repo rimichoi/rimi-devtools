@@ -573,6 +573,41 @@ input[type='checkbox']:checked::before {
   background: var(--surface);
 }
 
+/* ==========================================================================
+ * 테두리 대비 규칙 (WCAG 1.4.11, 비텍스트 대비 3:1)
+ *
+ *   사용자가 타이핑할 수 있는 표면의 경계는 --border-strong.
+ *   내용을 묶기만 하는 컨테이너의 경계는 --border 그대로.
+ *
+ * 왜 어떤 테두리는 진하고 어떤 건 연한지 — 안 적어두면 다음 사람이 "일관성이
+ * 없다" 며 되돌린다. 1.4.11 이 요구하는 것은 *컴포넌트를 식별하는 데 필요한*
+ * 경계지 장식적 구분선이 아니다. 그래서 전면 상향하지 않는다(화면만 시끄러워지고,
+ * 실제로 대비가 필요한 자리가 그 소음에 묻힌다).
+ *
+ * 강한 테두리를 받는 것 — 입력 대상인 표면:
+ *   - 단일 줄 input/textarea/select/button (아래 폼 필드 기본 규칙, 이미 적용됨)
+ *   - IOPane 의 입력 패널
+ *   - LinkedPanes 의 두 패널 (양쪽 다 편집 가능하다)
+ * 받지 않는 것 — 표시 영역이지 컨트롤이 아닌 것:
+ *   - IOPane 의 출력 패널 (읽기 전용이다. 복사는 되지만 입력 대상이 아니다)
+ *   - .io-error / .io-warn / .form-result / .exif-preview / ResultList 패널
+ *   - 섹션 구분선, 사이드바 경계 등 일반 카드 테두리
+ *
+ * 이 규칙이 생긴 경위: 단일 줄 input 은 이미 --border-strong(3.6:1)이었는데
+ * textarea 를 감싼 패널 카드만 --border(1.25:1)여서, "타이핑하는 자리" 가 한
+ * 화면 안에서 두 가지 대우를 받고 있었다. LinkedPanes 가 만든 문제가 아니라
+ * 드러낸 문제다.
+ *
+ * 판별은 .io-output-head 의 유무로 한다 — 출력 패널만 그 클래스를 갖는다.
+ * IOPane 의 입력 패널(맨 label 머리)과 LinkedPanes 의 패널(.io-input-head)이
+ * 함께 걸린다. 카드 자신에게 클래스를 더 심지 않기 위함이다.
+ * ========================================================================== */
+.io-pane > div:not(:has(.io-output-head)) {
+  border-color: var(--border-strong);
+}
+
+/* 포커스 표시는 위 두 규칙보다 명시도가 높아야 한다.
+ * :has(textarea:focus-visible) 는 (0,2,2) 로 (0,2,1) 인 위 규칙을 이긴다. */
 .io-pane > div:has(textarea:focus-visible) {
   border-color: var(--accent);
 }
