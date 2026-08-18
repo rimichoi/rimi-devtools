@@ -158,3 +158,170 @@ test.describe('json-diff: IOPane 의 두 입력을 쓴다', () => {
     await expect(error).toContainText('오른쪽 JSON 구문 오류');
   });
 });
+
+/*
+ * base64 / url-encode 는 서로의 역함수인 값 두 개를 다룬다. 예전에는 방향
+ * select(인코딩/디코딩)로 한 방향씩만 돌았고, 사용자는 아무것도 하기 전에
+ * "나는 지금 어느 모드인가" 부터 대답해야 했다. 이제 두 칸이 양방향으로
+ * 이어진다(LinkedPanes). 이 부류의 컴포넌트가 실제로 깨지는 자리를 고정한다.
+ */
+function linkedPanes(page: Page) {
+  const boxes = page.locator('#tool-root .io-pane-linked > div');
+  return {
+    boxes,
+    leftField: boxes.nth(0).locator('textarea'),
+    rightField: boxes.nth(1).locator('textarea'),
+    leftError: boxes.nth(0).locator('.io-error'),
+    rightError: boxes.nth(1).locator('.io-error'),
+  };
+}
+
+test.describe('base64: 원문 ↔ Base64 를 한 화면에서 양방향으로 잇는다', () => {
+  test('방향 select 는 사라지고 편집 가능한 두 칸만 남는다', async ({ page }) => {
+    await page.goto('/#/base64');
+
+    const { boxes, leftField, rightField } = linkedPanes(page);
+    await expect(boxes).toHaveCount(2);
+    // 인코딩/디코딩을 먼저 고르게 하던 select 가 남아 있으면 안 된다.
+    await expect(page.locator('#tool-root select')).toHaveCount(0);
+    // 읽기 전용 출력 칸도 없다 — 양쪽 다 사용자가 고칠 수 있어야 한다.
+    await expect(page.locator('#tool-root textarea[readonly]')).toHaveCount(0);
+    await expect(leftField).toBeEditable();
+    await expect(rightField).toBeEditable();
+  });
+
+  test('왼쪽에 원문을 치면 오른쪽에 Base64 가, 오른쪽에 치면 왼쪽에 원문이 나온다', async ({ page }) => {
+    await page.goto('/#/base64');
+    const { leftField, rightField } = linkedPanes(page);
+
+    await leftField.fill('안녕하세요');
+    await expect(rightField).toHaveValue('7JWI64WV7ZWY7IS47JqU');
+
+    await rightField.fill('aGVsbG8=');
+    await expect(leftField).toHaveValue('hello');
+  });
+
+  test('반대쪽을 채우는 동기화가 되돌아와 방금 친 칸을 덮어쓰지 않는다', async ({ page }) => {
+    await page.goto('/#/base64');
+    const { leftField, rightField } = linkedPanes(page);
+
+    // 왕복이 무손실이면 되먹임 루프가 있어도 값이 같아 보여서 아무 테스트도 죽지
+    // 않는다. 그래서 왕복이 값을 바꾸는 입력을 고른다: 줄바꿈이 섞인 Base64 는
+    // 디코딩되지만, 다시 인코딩하면 줄바꿈이 사라진 다른 문자열이 된다.
+    await rightField.fill('aGVs\nbG8=');
+    await expect(leftField).toHaveValue('hello');
+    // 되돌아오는 갱신이 있었다면 여기서 'aGVsbG8=' 이 된다.
+    await expect(rightField).toHaveValue('aGVs\nbG8=');
+  });
+
+  test('디코딩할 수 없는 값의 오류는 그 칸에 붙고 반대쪽 내용은 지우지 않는다', async ({ page }) => {
+    await page.goto('/#/base64');
+    const { leftField, rightField, leftError, rightError } = linkedPanes(page);
+
+    await leftField.fill('안녕하세요');
+    await expect(rightField).toHaveValue('7JWI64WV7ZWY7IS47JqU');
+
+    await rightField.fill('!!!not base64!!!');
+    await expect(rightError).toContainText('Base64 형식이 아닙니다');
+    // 오류는 원인이 들어 있는 쪽에만 붙는다.
+    await expect(leftError).toHaveText('');
+    // 그리고 사용자가 왼쪽에 써 둔 원문은 그대로 남아 있어야 한다.
+    await expect(leftField).toHaveValue('안녕하세요');
+  });
+
+  test('한쪽을 비우면 반대쪽도 비고 오류도 걷힌다', async ({ page }) => {
+    await page.goto('/#/base64');
+    const { leftField, rightField, rightError } = linkedPanes(page);
+
+    await rightField.fill('!!!not base64!!!');
+    await expect(rightError).toContainText('Base64 형식이 아닙니다');
+
+    await rightField.fill('');
+    await expect(rightError).toHaveText('');
+
+    await leftField.fill('안녕하세요');
+    await expect(rightField).toHaveValue('7JWI64WV7ZWY7IS47JqU');
+
+    await leftField.fill('');
+    // 더 이상 왼쪽에 대응하지 않는 값이 오른쪽에 남아 있으면 안 된다.
+    await expect(rightField).toHaveValue('');
+  });
+});
+
+test.describe('url-encode: 원문 ↔ 인코딩된 값', () => {
+  test('방향 select 는 사라지고 인코딩 범위 select 만 남는다', async ({ page }) => {
+    await page.goto('/#/url-encode');
+
+    await expect(linkedPanes(page).boxes).toHaveCount(2);
+    const selects = page.locator('#tool-root select');
+    await expect(selects).toHaveCount(1);
+    await expect(selects.locator('option')).toHaveText([
+      '값 단위 (encodeURIComponent)',
+      'URL 전체 (encodeURI)',
+    ]);
+  });
+
+  test('양방향으로 이어진다', async ({ page }) => {
+    await page.goto('/#/url-encode');
+    const { leftField, rightField } = linkedPanes(page);
+
+    await leftField.fill('한글 검색');
+    await expect(rightField).toHaveValue('%ED%95%9C%EA%B8%80%20%EA%B2%80%EC%83%89');
+
+    await rightField.fill('%ED%95%9C');
+    await expect(leftField).toHaveValue('한');
+  });
+
+  test('인코딩 범위를 바꾸면 원문 기준으로 인코딩된 쪽을 다시 만든다', async ({ page }) => {
+    await page.goto('/#/url-encode');
+    const { leftField, rightField } = linkedPanes(page);
+
+    await leftField.fill('https://a.com/b?q=한글');
+    // 값 단위(encodeURIComponent)는 구분자까지 전부 escape 한다.
+    await expect(rightField).toHaveValue('https%3A%2F%2Fa.com%2Fb%3Fq%3D%ED%95%9C%EA%B8%80');
+
+    await page.locator('#tool-root select').selectOption('full');
+    // URL 전체(encodeURI)는 구분자를 남긴다 — select 가 실제로 다시 계산해야만
+    // 이 값이 나온다.
+    await expect(rightField).toHaveValue('https://a.com/b?q=%ED%95%9C%EA%B8%80');
+    // 원문은 select 를 건드렸다고 바뀌지 않는다.
+    await expect(leftField).toHaveValue('https://a.com/b?q=한글');
+  });
+
+  test('한 글자씩 치는 동안 편집 중인 칸이 다시 쓰이지 않는다 (커서가 끝으로 튀지 않는다)', async ({
+    page,
+  }) => {
+    await page.goto('/#/url-encode');
+    const { leftField, rightField } = linkedPanes(page);
+
+    // 왕복이 무손실인 값(예: '한글')으로 재면, 편집 중인 칸을 다시 써도 같은
+    // 문자열이라 아무 일이 없는 것처럼 보인다. '%2D' 는 디코딩하면 '-' 이고
+    // '-' 를 다시 인코딩하면 '%2D' 가 아니라 '-' 다 — 편집 중인 칸을 한 번이라도
+    // 다시 쓰는 구현은 여기서 사용자가 친 글자를 잃는다.
+    await rightField.click();
+    await rightField.pressSequentially('%2Dab');
+    await expect(leftField).toHaveValue('-ab');
+
+    // 중간으로 커서를 옮겨 한 글자 끼워 넣는다.
+    await page.keyboard.press('ArrowLeft');
+    await rightField.pressSequentially('X');
+
+    // 편집 중인 칸이 다시 쓰였다면 커서가 끝으로 밀려 '%2DabX' 가 되거나,
+    // 값 자체가 '-ab' 로 뭉개진다.
+    await expect(rightField).toHaveValue('%2DaXb');
+    await expect(leftField).toHaveValue('-aXb');
+  });
+
+  test('잘못된 퍼센트 인코딩은 그 칸의 오류로 뜨고 원문은 남는다', async ({ page }) => {
+    await page.goto('/#/url-encode');
+    const { leftField, rightField, leftError, rightError } = linkedPanes(page);
+
+    await leftField.fill('한글');
+    await expect(rightField).toHaveValue('%ED%95%9C%EA%B8%80');
+
+    await rightField.fill('%ZZ');
+    await expect(rightError).toContainText('퍼센트 인코딩 형식이 올바르지 않습니다');
+    await expect(leftError).toHaveText('');
+    await expect(leftField).toHaveValue('한글');
+  });
+});

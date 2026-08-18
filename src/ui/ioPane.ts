@@ -2,13 +2,23 @@ import type { ToolResult } from '../types';
 import { createCopyButton } from './copyButton';
 
 /**
- * 컴포넌트 선택 규칙: `IOPane` 은 대량 텍스트 페이로드(붙여넣는 문서, 여러 줄
- * JSON/SQL 등)를 위한 것이다. 스칼라 값 하나를 받는 입력에는 단일 줄 필드
- * (`numberForm.ts`)를, 파일을 받는 입력에는 드롭존(`dropZone.ts`)을 쓴다.
- * 결과가 텍스트 한 덩어리가 아니라 여러 필드로 구조화돼 있다면(`resultList.ts`)
- * 참고 — 구조화된 값을 문자열로 뭉쳐 textarea 에 욱여넣지 않는다. epoch 도구가
- * 정확히 이 규칙을 어겨서(10글자짜리 타임스탬프에 textarea 를 썼다) 생긴 결함을
- * 고치며 이 규칙을 적어 둔다.
+ * 컴포넌트 선택 규칙. 입력의 모양과 결과의 모양이 컴포넌트를 정한다. 지금은
+ * 네 가지 경우가 있다:
+ *
+ *  1. 대량 텍스트 한 덩어리 → 대량 텍스트 한 덩어리: `IOPane`(이 파일). 붙여넣는
+ *     문서, 여러 줄 JSON/SQL 등. `secondInput` 옵션은 "편집 가능한 입력 둘 →
+ *     읽기 전용 출력 하나"(json-diff)까지 이 모양 안에서 처리한다.
+ *  2. 스칼라 값 하나 → 여러 필드로 구조화된 결과: 입력은 단일 줄 필드
+ *     (`numberForm.ts`), 결과는 정의 목록(`resultList.ts`). 구조화된 값을 문자열로
+ *     뭉쳐 textarea 에 욱여넣지 않는다 — epoch 도구가 정확히 이 규칙을 어겨서
+ *     (10글자짜리 타임스탬프에 textarea 를 썼다) 생긴 결함을 고치며 이 규칙을 적었다.
+ *  3. 파일 → 무엇이든: 드롭존(`dropZone.ts`).
+ *  4. 서로의 역함수인 값 둘: `linkedPanes.ts`. base64(원문 ↔ Base64), url-encode
+ *     (원문 ↔ 퍼센트 인코딩)처럼 어느 쪽에서 출발해도 반대쪽을 만들 수 있는
+ *     경우다. 이때 IOPane 을 쓰면 "지금 인코딩 모드인가 디코딩 모드인가" 를 고르는
+ *     방향 select 가 반드시 따라붙는데, 그건 사용자가 아무것도 하기 전에 먼저
+ *     대답해야 하는 질문이다. `secondInput` 은 이 자리에 맞지 않는다 — 그건
+ *     "입력 둘 → 출력 하나"이지 "서로를 갱신하는 짝"이 아니다.
  */
 export interface TransformOutput {
   text: string;

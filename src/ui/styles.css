@@ -552,8 +552,11 @@ input[type='checkbox']:checked::before {
  * 입력과 출력을 같은 모양의 맨몸 textarea 로 두면 어느 쪽이 무엇인지 아무것도
  * 알려주지 못한다. 둘 다 라벨 스트립을 머리에 얹은 카드로 만들고, 몸통 배경을
  * 한 단계 다르게 준다 — 입력은 페이지 배경(=편집 가능한 편집기), 출력은
- * --surface(=읽기 전용 패널). 어느 쪽이 출력인지는 :has() 로 판별하므로
- * 마크업에 클래스를 더 심지 않는다.
+ * --surface(=읽기 전용 패널). 어느 쪽이 출력인지는 .io-output-head 를 :has() 로
+ * 찾아 판별하므로, 카드 자신에게 클래스를 따로 심지 않는다.
+ *
+ * LinkedPanes(양방향 두 짝) 의 카드는 둘 다 편집 가능하므로 이 규칙에서 --bg 를
+ * 그대로 물려받는다 — 그쪽은 .io-output-head 대신 .io-input-head 를 쓴다.
  */
 .io-pane > div {
   display: flex;
@@ -576,6 +579,7 @@ input[type='checkbox']:checked::before {
 
 /* 카드 머리 라벨 스트립 */
 .io-pane label,
+.io-input-head,
 .io-output-head {
   display: flex;
   align-items: center;
@@ -593,12 +597,25 @@ input[type='checkbox']:checked::before {
   text-transform: uppercase;
 }
 
+/* 복사 버튼을 오른쪽 끝에 붙이는 머리 스트립은 오른쪽 여백을 좁게 준다. */
+.io-input-head,
 .io-output-head {
   padding-right: 6px;
+}
+
+.io-output-head {
   background: var(--surface-2);
 }
 
-/* .io-output-head 안에 라벨이 중첩돼 있으므로 스트립 장식을 한 번만 적용한다 */
+/*
+ * LinkedPanes 의 두 카드는 둘 다 편집 가능한 동등한 짝이므로, 읽기 전용 결과
+ * 카드(.io-output-head)의 --surface-2 대신 입력 라벨과 같은 --surface 를 쓰고
+ * 몸통도 --bg 로 남는다. 그래서 .io-output-head 가 아니라 별도 클래스를 쓴다 —
+ * 그 클래스는 "이 카드는 읽기 전용 결과다" 라는 뜻까지 함께 나른다.
+ */
+
+/* 머리 스트립 안에 라벨이 중첩돼 있으므로 스트립 장식을 한 번만 적용한다 */
+.io-input-head label,
 .io-output-head label {
   min-height: 0;
   padding: 0;
@@ -606,6 +623,7 @@ input[type='checkbox']:checked::before {
   border-bottom: 0;
 }
 
+.io-input-head button,
 .io-output-head button {
   padding: 3px var(--sp-2);
   border-color: transparent;
@@ -616,6 +634,7 @@ input[type='checkbox']:checked::before {
   text-transform: none;
 }
 
+.io-input-head button:hover,
 .io-output-head button:hover {
   border-color: var(--border-strong);
   background: var(--bg);
