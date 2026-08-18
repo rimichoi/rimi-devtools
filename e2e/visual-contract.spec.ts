@@ -171,6 +171,13 @@ async function driveTool(page: Page, id: string): Promise<void> {
       const value = sample.values[i];
       if (value !== undefined) await fields.nth(i).fill(value);
     }
+    // 비밀번호 칸은 위 셀렉터에 걸리지 않는다(걸리게 만들면 다른 도구의 값 순서가
+    // 밀린다). 선언했는데 못 찾으면 빈 결과 화면을 재고 통과하는 대신 실패한다.
+    if (sample.secret !== undefined) {
+      const secretFields = page.locator('#tool-root input[type="password"]');
+      expect(await secretFields.count(), `${id}: 비밀번호 입력을 찾지 못했습니다`).toBeGreaterThan(0);
+      await secretFields.first().fill(sample.secret);
+    }
   } else if (sample.kind === 'file') {
     await page.locator('#tool-root input[type="file"]').first().setInputFiles(sample.path);
     await expect(page.locator(sample.settledSelector).first()).toBeVisible();
@@ -366,8 +373,9 @@ async function measureEditableBorders(page: Page): Promise<
 
     const results: { el: string; box: string; fg: string; bg: string; ratio: number }[] = [];
 
+    // 비밀번호 칸도 사용자가 타이핑하는 표면이다 — 같은 테두리 규칙을 받아야 한다.
     const fields = document.querySelectorAll(
-      '#tool-root textarea:not([readonly]), #tool-root input:not([readonly])[type="text"]',
+      '#tool-root textarea:not([readonly]), #tool-root input:not([readonly]):is([type="text"], [type="password"])',
     );
     for (const field of fields) {
       const rect = field.getBoundingClientRect();

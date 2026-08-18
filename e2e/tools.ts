@@ -16,9 +16,14 @@ const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
  *   끝나기도 전에 "요청 없음"으로 통과해 버리는 일을 막기 위한 것이다.
  * - 'none': 어떤 입력도 받지 않는 도구. 아무것도 구동하지 않고 통과하므로,
  *   실제로 입력이 있는 도구에 이걸 쓰면 가드가 통째로 무력해진다.
+ *
+ * `secret` 은 `<input type="password">` 에 채울 값이다. 텍스트 필드 셀렉터
+ * (textarea / input[type=text] 계열)는 비밀번호 칸을 잡지 않으므로 — 잡게 만들면
+ * 다른 도구의 값 순서가 밀린다 — 별도 항목으로 둔다. 선언한 도구인데 비밀번호
+ * 칸을 못 찾으면 헬퍼가 실패한다(조용히 지나가지 않는다).
  */
 export type SampleInput =
-  | { kind: 'text'; values: string[] }
+  | { kind: 'text'; values: string[]; secret?: string }
   | { kind: 'file'; path: string; settledSelector: string }
   | { kind: 'none' };
 
@@ -56,6 +61,18 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
     // 메타데이터 표에 행이 생겼다는 것은 handleFile 의 async 경로가 끝까지
     // 돌았다는 뜻이다.
     settledSelector: '#tool-root .exif-table tr',
+  },
+  /*
+   * jasypt 는 마스터 비밀번호가 없으면 두 결과 카드가 모두 빈 안내 문구로 남는다 —
+   * 복호화 결과 textarea 도 암호화 결과 목록도 값이 없으므로, 결과 자리의 색과
+   * 좁은 화면 레이아웃이 한 번도 검사되지 않는다. 그래서 `secret` 까지 채운다.
+   * values 는 DOM 순서(복호화 입력, 암호화 입력)이고 둘 다 textarea 다.
+   * 비밀번호 'test1!' + 이 암호문은 실제 Jasypt 1.9.3 출력이라 결과가 'root' 로 나온다.
+   */
+  jasypt: {
+    kind: 'text',
+    values: ['ENC(xYIzsUiigr3pQj5xO0KWvg==)', 'root'],
+    secret: 'test1!',
   },
 };
 

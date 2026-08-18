@@ -103,6 +103,18 @@ for (const id of TOOL_IDS) {
         if (value === undefined) continue;
         await fields.nth(i).fill(value);
       }
+
+      // 비밀번호 칸은 위 셀렉터에 걸리지 않는다. jasypt 는 이 칸이 비어 있으면
+      // 계산 경로를 아예 타지 않으므로, 채우지 않으면 이 가드가 "아무것도 계산하지
+      // 않은 화면" 을 보고 통과한다.
+      if (sample.secret !== undefined) {
+        const secretFields = page.locator('#tool-root input[type="password"]');
+        expect(
+          await secretFields.count(),
+          `${id}: 비밀번호 입력을 선언했지만 input[type="password"] 을 찾지 못했습니다`,
+        ).toBeGreaterThan(0);
+        await secretFields.first().fill(sample.secret);
+      }
     } else if (sample.kind === 'file') {
       const fileInput = page.locator('#tool-root input[type="file"]');
       // 텍스트 도구와 같은 이유로, 파일 입력을 못 찾으면 아무것도 올리지 않은
