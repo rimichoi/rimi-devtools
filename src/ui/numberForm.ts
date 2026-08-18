@@ -1,27 +1,21 @@
-/**
- * 필드가 받아들이는 모양을 강제하는 마스크.
- *
- * `apply` 는 순수 함수이고 도구의 logic.ts 에 산다(node 에서 단위 테스트할 수
- * 있어야 한다). 이 파일은 그 함수를 실제 입력칸에 붙이면서 생기는 DOM 쪽 문제
- * 셋만 맡는다: 캐럿 위치, 백스페이스, IME 조합.
- */
-export interface FieldMask {
-  /** 임의의 입력을 허용된 모양으로 바꾼다. 부분 입력도 통과시켜야 한다. */
-  apply(raw: string): string;
-  /**
-   * 캐럿 위치를 세는 기준 문자인지. **마스크가 끼워 넣는 구분자는 false 여야
-   * 한다** — 구분자까지 세면 재포맷 뒤 캐럿이 한 칸씩 밀려 결국 사용자가
-   * 글자를 엉뚱한 자리에 넣게 된다.
-   */
-  isAnchor(char: string): boolean;
-}
+import type { FieldMask } from './masks';
 
+/**
+ * 단일 줄 스칼라 입력칸 하나.
+ *
+ * `mask` 는 **필수**다. 마스크 없는 칸을 만들 수 있게 두었을 때 실제로 일어난 일이
+ * 이 파일의 존재 이유다 — 날짜 칸 둘만 마스크를 갖고 나머지 숫자 칸(퍼센트 A/B,
+ * 타임스탬프, 시간 A/B)은 임의의 텍스트를 그대로 받았고, 같은 제품 안에서 어떤
+ * 칸은 걸러 주고 어떤 칸은 안 걸러 주는 상태가 됐다. 마스크를 고르지 않으면
+ * 컴파일이 실패해야 그 표류가 다시 생기지 않는다. 고를 마스크는
+ * `masks.ts` 카탈로그에 있고, 없으면 거기에 추가한다(도구마다 새로 쓰지 않는다).
+ */
 export interface NumberFormField {
   key: string;
   label: string;
   placeholder?: string;
-  /** 지정하면 이 칸의 입력을 마스크로 정규화한다(캐럿 보정 포함). */
-  mask?: FieldMask;
+  /** 이 칸의 입력을 정규화하는 마스크. `masks.ts` 에서 고른다. */
+  mask: FieldMask;
 }
 
 /** text 안의 기준 문자 개수 */
@@ -162,10 +156,13 @@ export function createNumberForm(
   const wrap = document.createElement('div');
   wrap.className = 'tool-custom form-grid';
 
-  const inputs = new Map<string, HTMLInputElement>();
-  const labels = new Map<string, HTMLLabelElement>();
-  /** 마스크가 붙은 칸의 "프로그램으로 넣는 값" 정규화기 */
-  const syncs = new Map<string, (value: string) => string>();
+  interface FieldParts {
+    input: HTMLInputElement;
+    label: HTMLLabelElement;
+    /** 프로그램으로 넣는 값(`setValue`)을 같은 마스크로 통과시키는 동기화 함수. */
+    sync: (value: string) => string;
+  }
+  const parts = new Map<string, FieldParts>();
 
   for (const field of fields) {
     const row = document.createElement('div');
@@ -173,16 +170,16 @@ export function createNumberForm(
     label.textContent = field.label;
     const input = document.createElement('input');
     input.type = 'text';
-    input.inputMode = 'decimal';
+    // 어떤 문자를 받아들이는지 아는 것은 마스크뿐이다. 모든 칸에 'decimal' 을
+    // 박아 두면 날짜/시각 칸에도 소수점 키가 뜨고, 그 키는 눌러도 걸러진다.
+    input.inputMode = field.mask.inputMode;
     input.placeholder = field.placeholder ?? '';
-    if (field.mask) syncs.set(field.key, attachMask(input, field.mask, onChange));
-    // 마스크가 붙은 칸은 attachMask 가 자기 input 리스너 안에서 onChange 를
-    // 부른다 — 마스크가 먼저 돌아야 계산이 정규화된 값을 본다.
-    else input.addEventListener('input', onChange);
+    // attachMask 가 자기 input 리스너 안에서 onChange 를 부른다 — 마스크가 먼저
+    // 돌아야 계산이 정규화된 값을 본다.
+    const sync = attachMask(input, field.mask, onChange);
     row.append(label, input);
     wrap.append(row);
-    inputs.set(field.key, input);
-    labels.set(field.key, label);
+    parts.set(field.key, { input, label, sync });
   }
 
   const showResult = options.result !== false;
@@ -196,19 +193,19 @@ export function createNumberForm(
   return {
     values() {
       const out: Record<string, string> = {};
-      for (const [key, input] of inputs) out[key] = input.value;
+      for (const [key, field] of parts) out[key] = field.input.value;
       return out;
     },
     setValue(key, value) {
-      const el = inputs.get(key);
-      if (!el) return;
-      // 마스크가 붙은 칸은 프로그램으로 넣는 값도 같은 규칙을 지나야 한다.
-      el.value = syncs.get(key)?.(value) ?? value;
+      const field = parts.get(key);
+      if (!field) return;
+      // 프로그램으로 넣는 값도 사용자가 친 값과 같은 마스크를 지나야 한다.
+      field.input.value = field.sync(value);
       onChange();
     },
     setLabel(key, label) {
-      const el = labels.get(key);
-      if (el) el.textContent = label;
+      const field = parts.get(key);
+      if (field) field.label.textContent = label;
     },
     setResult(text) {
       result.textContent = text;

@@ -1,20 +1,8 @@
 import type { ToolModule } from '../../types';
 import { createSelect } from '../../ui/select';
-import { createNumberForm, type FieldMask, type NumberFormHandle } from '../../ui/numberForm';
-import {
-  addDuration,
-  diffDates,
-  isDateInputAnchor,
-  isDayCountInputAnchor,
-  maskDateInput,
-  maskDayCountInput,
-  shiftDate,
-} from './logic';
-
-/** `2026-08-14`. `20260814` / `2026/08/14` / `2026.08.14` 를 모두 이 모양으로 만든다. */
-const DATE_MASK: FieldMask = { apply: maskDateInput, isAnchor: isDateInputAnchor };
-/** 숫자와 맨 앞 '-' 하나만. `Number('abc')` 가 NaN 이 되는 자리를 없앤다. */
-const DAY_COUNT_MASK: FieldMask = { apply: maskDayCountInput, isAnchor: isDayCountInputAnchor };
+import { createNumberForm, type NumberFormHandle } from '../../ui/numberForm';
+import { DATE_MASK, DURATION_MASK, INTEGER_MASK } from '../../ui/masks';
+import { addDuration, diffDates, shiftDate } from './logic';
 
 type Mode = 'duration' | 'diff' | 'shift';
 
@@ -44,9 +32,11 @@ const mod: ToolModule = {
 
     function fieldsFor(m: Mode) {
       if (m === 'duration') {
+        // 지속 시간은 오른쪽부터 채운다 — `30:00`(MM:SS)과 `01:30:00`(HH:MM:SS)이
+        // 둘 다 정상 입력이고 시는 열려 있다. 자세한 근거는 masks.ts 참고.
         return [
-          { key: 'a', label: '시간 A', placeholder: '01:30:00' },
-          { key: 'b', label: '시간 B', placeholder: '00:45:30' },
+          { key: 'a', label: '시간 A', placeholder: '01:30:00', mask: DURATION_MASK },
+          { key: 'b', label: '시간 B', placeholder: '00:45:30', mask: DURATION_MASK },
         ];
       }
       if (m === 'diff') {
@@ -57,7 +47,7 @@ const mod: ToolModule = {
       }
       return [
         { key: 'a', label: '기준 날짜', placeholder: '2026-08-14', mask: DATE_MASK },
-        { key: 'b', label: '더할 일수 (음수 가능)', placeholder: '20', mask: DAY_COUNT_MASK },
+        { key: 'b', label: '더할 일수 (음수 가능)', placeholder: '20', mask: INTEGER_MASK },
       ];
     }
 

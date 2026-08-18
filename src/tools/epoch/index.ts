@@ -1,6 +1,7 @@
 import type { ToolModule } from '../../types';
 import { createSelect } from '../../ui/select';
 import { createNumberForm } from '../../ui/numberForm';
+import { DATE_TIME_MASK, INTEGER_MASK } from '../../ui/masks';
 import { createResultList } from '../../ui/resultList';
 import { fromEpoch, toEpoch, formatEpochInfo, type EpochInfo, type EpochUnit, type TimeZone } from './logic';
 
@@ -23,7 +24,14 @@ const mod: ToolModule = {
     // 영역을 만들면 아무도 채우지 않는 빈 상자가 입력과 결과 사이에 남는다.
     const forwardForm = createNumberForm(
       root,
-      [{ key: 'timestamp', label: '타임스탬프', placeholder: '1700000000' }],
+      /*
+       * 정수 마스크다 — 숫자와 맨 앞 '-' 하나. '-' 를 함께 살리는 이유: fromEpoch 이
+       * `-?\d+` 를 받고 detectUnit 이 `Math.abs` 로 판별하도록 만들어져 있어, 1970년
+       * 이전 시각을 가리키는 음수 타임스탬프는 이 도구가 이미 지원하는 정상 입력이다.
+       * 숫자만 남기는 필터로 '-' 를 지우면 그 입력을 아예 칠 수 없게 된다.
+       * 쉼표/밑줄이 섞인 `1,700,000,000` 은 마스크가 순수한 숫자로 정규화한다.
+       */
+      [{ key: 'timestamp', label: '타임스탬프', placeholder: '1700000000', mask: INTEGER_MASK }],
       runForward,
       { result: false },
     );
@@ -88,7 +96,14 @@ const mod: ToolModule = {
     // 위 방향과 마찬가지로 결과·오류는 전적으로 아래 ResultList 가 그린다.
     const reverseForm = createNumberForm(
       root,
-      [{ key: 'datetime', label: '날짜와 시각', placeholder: '2023-11-15 07:13:20' }],
+      [
+        {
+          key: 'datetime',
+          label: '날짜와 시각',
+          placeholder: '2023-11-15 07:13:20',
+          mask: DATE_TIME_MASK,
+        },
+      ],
       runReverse,
       { result: false },
     );

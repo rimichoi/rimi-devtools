@@ -247,14 +247,144 @@ test.describe('더할 일수 칸 입력 제한', () => {
   });
 });
 
-test('모드를 바꿔도 마스크가 새 칸에 다시 붙는다', async ({ page }) => {
+/*
+ * 시간 칸(기본 모드)의 마스크는 **오른쪽부터** 채운다. 날짜 마스크를 복사해 오면
+ * 틀린다: `30:00`(MM:SS)과 `01:30:00`(HH:MM:SS)이 둘 다 정상 입력이고, 시는
+ * 열려 있다(`100:00:00`). 변환 규칙 자체는 단위 테스트(src/ui/masks.test.ts)가
+ * 맡고, 여기서는 실제 입력칸에 붙였을 때만 드러나는 것만 본다.
+ */
+test.describe('시간 칸 자동 서식 (오른쪽부터 채운다)', () => {
+  test('숫자만 쳐도 HH:MM:SS 가 된다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('013000');
+    await expect(a).toHaveValue('01:30:00');
+  });
+
+  test('구분자를 함께 쳐도 같은 값이 된다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('01:30:00');
+    await expect(a).toHaveValue('01:30:00');
+  });
+
+  test('네 자리는 MM:SS 가 된다 — 앞 두 자리를 시로 못 박지 않는다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('3000');
+    await expect(a).toHaveValue('30:00');
+    // 그리고 이 값으로 실제 계산이 된다(MM:SS 를 parseDuration 이 받는다).
+    const b = fields(page).nth(1);
+    await b.click();
+    await b.pressSequentially('3000');
+    await expect(page.locator('#tool-root .form-result')).toHaveText('01:00:00');
+  });
+
+  test('시는 열려 있다 — 100시간을 넘겨도 잘리지 않는다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('1000000');
+    await expect(a).toHaveValue('100:00:00');
+  });
+
+  test('백스페이스가 갇히지 않는다 — 누를 때마다 한 글자씩 줄어든다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('013000');
+    await expect(a).toHaveValue('01:30:00');
+
+    // 숫자가 하나 줄면 뜻이 오른쪽으로 밀리므로 값의 모양도 함께 바뀐다.
+    for (const expected of ['0:13:00', '01:30', '0:13', '01', '0', '']) {
+      await page.keyboard.press('Backspace');
+      await expect(a).toHaveValue(expected);
+    }
+  });
+
+  test('값 가운데를 고쳐도 캐럿이 방금 친 글자 뒤에 남는다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('013000');
+    await expect(a).toHaveValue('01:30:00');
+
+    // '01:3|0:00' 에 '9' 를 끼워 넣는다 → 숫자열 '0139000'
+    await a.evaluate((node) => (node as HTMLInputElement).setSelectionRange(4, 4));
+    await page.keyboard.type('9');
+
+    await expect(a).toHaveValue('013:90:00');
+    // 방금 친 '9' 바로 뒤. 끝으로 튀면 다음 글자가 엉뚱한 자리에 들어간다.
+    expect(await caretOf(a)).toBe(5);
+  });
+
+  test('어떤 표기로 붙여넣어도 01:30:00 이 된다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+
+    const a = fields(page).nth(0);
+    for (const pasted of ['01:30:00', '013000', '01.30.00', '01 30 00']) {
+      await paste(a, pasted);
+      await expect(a, `붙여넣은 값: ${pasted}`).toHaveValue('01:30:00');
+    }
+  });
+
+  test('IME 조합 중에는 값을 건드리지 않고, 조합이 끝난 뒤에 정리한다', async ({ page }) => {
+    await page.goto('/#/time-calc');
+    const a = fields(page).nth(0);
+
+    await a.evaluate((node) => {
+      const el = node as HTMLInputElement;
+      el.focus();
+      el.value = '1시간';
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+    });
+    await expect(a).toHaveValue('1시간');
+
+    await a.evaluate((node) => {
+      node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    });
+    await expect(a).toHaveValue('1');
+  });
+
+  test('마스크를 통과한 값도 분/초가 59 를 넘으면 계산 층이 한국어 오류를 낸다', async ({
+    page,
+  }) => {
+    await page.goto('/#/time-calc');
+
+    // 마스크는 자리만 맞춘다 — 60 분이 유효한지는 판단하지 않는다(편의지 경계가 아니다).
+    const a = fields(page).nth(0);
+    await a.click();
+    await a.pressSequentially('016000');
+    await expect(a).toHaveValue('01:60:00');
+
+    const b = fields(page).nth(1);
+    await b.click();
+    await b.pressSequentially('000001');
+
+    await expect(page.locator('#tool-root .form-grid .io-error')).toContainText(
+      'HH:MM:SS 또는 MM:SS 형식으로 입력하세요.',
+    );
+  });
+});
+
+test('모드를 바꿔도 각 모드에 맞는 마스크가 새 칸에 다시 붙는다', async ({ page }) => {
   await page.goto('/#/time-calc');
 
-  // 기본 모드(시간 더하기/빼기)의 칸에는 마스크가 없다 — HH:MM:SS 를 그대로 받는다.
+  // 기본 모드(시간 더하기/빼기)의 칸은 오른쪽부터 채우는 시간 마스크다.
   await fields(page).nth(0).click();
-  await fields(page).nth(0).pressSequentially('01:30:00');
+  await fields(page).nth(0).pressSequentially('013000');
   await expect(fields(page).nth(0)).toHaveValue('01:30:00');
 
+  // 날짜 모드의 칸은 왼쪽부터 채우는 날짜 마스크다 — 같은 숫자열이 다른 모양이 된다.
   await selectMode(page, MODE_SHIFT);
   await fields(page).nth(0).click();
   await fields(page).nth(0).pressSequentially('20260814');
