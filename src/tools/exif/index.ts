@@ -23,7 +23,7 @@ const mod: ToolModule = {
     error.className = 'io-error';
 
     const head = document.createElement('div');
-    head.className = 'io-output-head section-heading';
+    head.className = 'io-output-head';
     const headLabel = document.createElement('label');
     headLabel.textContent = '메타데이터';
     head.append(
@@ -94,7 +94,12 @@ const mod: ToolModule = {
     }
 
     const zone = createDropZone(wrap, (file) => void handleFile(file), 'image/*');
-    wrap.append(preview, gpsWarn, head, table, error);
+    // 라벨 스트립과 표를 하나의 패널로 묶는다. 형제 두 요소를 테두리 하나로
+    // 감싸는 것은 CSS 만으로는 안 되므로 여기서 컨테이너를 만든다.
+    const metaPanel = document.createElement('div');
+    metaPanel.className = 'panel';
+    metaPanel.append(head, table);
+    wrap.append(preview, gpsWarn, metaPanel, error);
     root.append(wrap);
 
     return () => {

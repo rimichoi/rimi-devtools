@@ -40,6 +40,8 @@ export interface IOPaneHandle {
 
 export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneHandle {
   const wrap = document.createElement('div');
+  // 컨트롤 바와 pane 사이 수직 리듬을 CSS 로 잡을 수 있도록 이름을 준다.
+  wrap.className = 'io-wrap';
 
   if (options.controls?.length) {
     const bar = document.createElement('div');
@@ -79,6 +81,11 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
   const output = document.createElement('textarea');
   output.readOnly = true;
   output.spellcheck = false;
+  // 아무것도 입력하지 않은 출력창은 지금까지 그냥 빈 상자였고, 기다리는 중인지
+  // 고장난 것인지 구분할 수 없었다. 빈 상태 문구는 CSS 로는 만들 수 없다 —
+  // textarea 는 대체 요소라 ::before/content 가 렌더되지 않고, ::placeholder 는
+  // placeholder 속성이 실제로 있어야 그릴 것이 생긴다.
+  output.placeholder = '결과가 여기에 표시됩니다.';
   outputHead.append(outputLabel, createCopyButton(() => output.value));
   outputBox.append(outputHead, output);
 

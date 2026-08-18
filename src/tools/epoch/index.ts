@@ -19,10 +19,13 @@ const mod: ToolModule = {
 
     let lastInfo: EpochInfo | undefined;
 
+    // 이 방향의 결과와 오류는 아래 ResultList 가 전부 그린다. 폼 자신의 결과
+    // 영역을 만들면 아무도 채우지 않는 빈 상자가 입력과 결과 사이에 남는다.
     const forwardForm = createNumberForm(
       root,
       [{ key: 'timestamp', label: '타임스탬프', placeholder: '1700000000' }],
       runForward,
+      { result: false },
     );
 
     const result = createResultList(root, {
