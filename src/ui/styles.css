@@ -23,7 +23,7 @@
 
   /* --- 색: 경계 ----------------------------------------------------------- */
   --border: #e3e6eb;
-  --border-strong: #c9cfd8;
+  --border-strong: #7f8795;
 
   /* --- 색: 강조 ----------------------------------------------------------- */
   --accent: #2563eb;
@@ -103,7 +103,7 @@
     --muted: #8b95a5;
 
     --border: #272c34;
-    --border-strong: #3a414c;
+    --border-strong: #656d7c;
 
     --accent: #60a5fa;
     --accent-fg: #93c5fd;
@@ -137,7 +137,7 @@
   --muted: #8b95a5;
 
   --border: #272c34;
-  --border-strong: #3a414c;
+  --border-strong: #656d7c;
 
   --accent: #60a5fa;
   --accent-fg: #93c5fd;
