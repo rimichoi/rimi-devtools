@@ -114,3 +114,57 @@ describe('shiftDate', () => {
     expect(shiftDate('2026-02-30', 1).ok).toBe(false);
   });
 });
+
+describe('shiftDate 방어', () => {
+  /*
+   * 화면의 입력 필터는 편의지 경계가 아니다. 이 층은 필터가 무엇을 통과시키든
+   * 스스로 한국어 ToolResult 오류를 돌려줘야 한다.
+   */
+  it('숫자가 아니면 한국어 오류를 돌려준다 (Number("abc") = NaN)', () => {
+    expect(shiftDate('2026-08-14', Number('abc'))).toEqual({
+      ok: false,
+      error: '더할 일수를 숫자로 입력하세요.',
+    });
+  });
+
+  it('Infinity 도 막는다', () => {
+    expect(shiftDate('2026-08-14', Infinity).ok).toBe(false);
+  });
+
+  it('정수가 아니면 조용히 잘라내지 않고 오류를 돌려준다', () => {
+    expect(shiftDate('2026-08-14', 1.5)).toEqual({
+      ok: false,
+      error: '더할 일수는 정수로 입력하세요.',
+    });
+  });
+
+  it('Date 의 표현 범위를 넘기는 일수는 NaN-NaN-NaN 대신 오류가 된다', () => {
+    // 필터가 숫자만 통과시키므로 999999999999 는 실제로 칸에 칠 수 있는 값이다.
+    const r = shiftDate('2026-08-14', 999999999999);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toBe('계산한 날짜가 YYYY-MM-DD 로 나타낼 수 있는 범위를 벗어났습니다.');
+  });
+
+  it('연도가 네 자리를 벗어나면 YYYY-MM-DD 가 아니므로 오류가 된다', () => {
+    // 3,000,000일 ≈ 8,200년. Date 범위 안이지만 이 도구의 형식 밖이다.
+    const r = shiftDate('2026-08-14', 3_000_000);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain('YYYY-MM-DD');
+  });
+
+  it('음수 방향으로도 같은 범위 검사를 한다', () => {
+    expect(shiftDate('2026-08-14', -3_000_000).ok).toBe(false);
+  });
+
+  it('범위 안이면 그대로 계산한다 (범위 검사가 정상 입력을 막지 않는다)', () => {
+    expect(shiftDate('2026-08-14', 0)).toEqual({ ok: true, value: '2026-08-14' });
+    // 표현 가능한 마지막 날 바로 앞까지는 계산된다.
+    expect(shiftDate('9999-12-30', 1)).toEqual({ ok: true, value: '9999-12-31' });
+  });
+
+  it('네 자리 연도의 마지막 날을 넘어서면 막는다', () => {
+    expect(shiftDate('9999-12-31', 1).ok).toBe(false);
+  });
+});

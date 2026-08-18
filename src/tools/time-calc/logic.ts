@@ -91,9 +91,24 @@ export function diffDates(from: string, to: string): ToolResult<DateDiff> {
 
 export function shiftDate(date: string, days: number): ToolResult<string> {
   if (!Number.isFinite(days)) return { ok: false, error: '더할 일수를 숫자로 입력하세요.' };
+  if (!Number.isInteger(days)) return { ok: false, error: '더할 일수는 정수로 입력하세요.' };
 
   const base = parseDate(date);
   if (!base.ok) return base;
 
-  return { ok: true, value: formatDate(new Date(base.value.getTime() + days * DAY_MS)) };
+  const shifted = new Date(base.value.getTime() + days * DAY_MS);
+  /*
+   * 화면의 입력 필터가 무엇을 걸러 주든 이 층은 스스로 방어한다 — 필터는 편의지
+   * 경계가 아니다. 그리고 여기서 막지 않으면 실제로 새어 나가는 값이 있었다:
+   * `999999999999` 같은 큰 일수는 Date 의 표현 범위(±8.64e15ms)를 넘겨 Invalid
+   * Date 가 되고, 그대로 형식화하면 `NaN-NaN-NaN` 이 '결과' 랍시고 화면에 뜬다.
+   * 범위 안이어도 연도가 네 자리를 벗어나면 이 도구가 약속한 YYYY-MM-DD 가
+   * 아니게 되므로(그 값을 다시 입력칸에 넣으면 파싱되지 않는다) 함께 막는다.
+   */
+  const year = shifted.getUTCFullYear();
+  if (!Number.isFinite(year) || year < 0 || year > 9999) {
+    return { ok: false, error: '계산한 날짜가 YYYY-MM-DD 로 나타낼 수 있는 범위를 벗어났습니다.' };
+  }
+
+  return { ok: true, value: formatDate(shifted) };
 }
