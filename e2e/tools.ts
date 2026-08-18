@@ -27,7 +27,11 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
   'sql-format': { kind: 'text', values: ['select a,b from t where a=1'] },
   base64: { kind: 'text', values: ['안녕하세요'] },
   'url-encode': { kind: 'text', values: ['https://a.com/b?q=한글 검색'] },
-  'text-count': { kind: 'text', values: ['안녕하세요 반갑습니다'] },
+  // 이 값은 네 결과 패널을 **전부** 채워야 한다. 평범한 한글 문장만 넣으면
+  // 'EUC-KR 로 표현할 수 없는 문자' 와 '보이지 않는 문자' 패널이 빈 안내 문구로
+  // 남아서, 그 목록의 행 색이 대비 측정에도 좁은 화면 검사에도 한 번도 걸리지
+  // 않는다. 제로폭 공백(U+200B)과 이모지를 섞어 두 패널 모두 행이 생기게 한다.
+  'text-count': { kind: 'text', values: ['안녕하세요\u200B 반갑습니다 \u{1F600}'] },
   percent: { kind: 'text', values: ['25', '200'] },
   epoch: { kind: 'text', values: ['1700000000'] },
   'time-calc': { kind: 'text', values: ['01:30:00', '00:45:30'] },
