@@ -13,9 +13,21 @@ export interface TextStats {
   lines: number;
 }
 
-const segmenter = new Intl.Segmenter('ko', { granularity: 'grapheme' });
+/*
+ * Segmenter 를 모듈 최상위에서 만들면 안 된다. `Intl.Segmenter` 가 없는 브라우저
+ * (Firefox 125 미만)에서는 그 한 줄이 **청크 평가 중에** 던지고, 그러면
+ * `import('./tools/text-count/index')` 자체가 실패해 main.ts 의 "청크를 받지 못함"
+ * 갈래로 떨어진다 — 즉 빈 화면 + "새 버전이 배포되었습니다. 새로고침해 주세요."
+ * 라는, 이 경우에는 아무 소용도 없는 안내가 영원히 뜬다(실측으로 확인했다).
+ *
+ * 게으르게 만들면 실패 시점이 "도구를 여는 순간" 에서 "입력을 처리하는 순간" 으로
+ * 옮겨 가고, 그 자리에는 IOPane 의 backstop 이 있다 — 화면은 살아 있고 한국어
+ * 오류가 뜬다.
+ */
+let segmenter: Intl.Segmenter | undefined;
 
 function countGraphemes(text: string): number {
+  segmenter ??= new Intl.Segmenter('ko', { granularity: 'grapheme' });
   return [...segmenter.segment(text)].length;
 }
 

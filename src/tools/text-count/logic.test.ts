@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   countText,
   countEucKrBytes,
@@ -60,6 +60,31 @@ describe('countText', () => {
 
   it('공백 제외 글자수는 모든 공백류를 뺀다', () => {
     expect(countText('a b\tc\nd').charsNoSpace).toBe(4);
+  });
+
+  /*
+   * `Intl.Segmenter` 가 없는 브라우저(Firefox 125 미만)에서 이 모듈이 **평가만
+   * 해도** 던지면, 동적 import 가 실패해 main.ts 의 "청크를 받지 못함" 갈래로
+   * 떨어진다 — 빈 화면 + "새 버전이 배포되었습니다. 새로고침해 주세요." 라는,
+   * 이 경우엔 아무 소용 없는 안내다(실측으로 확인했다). 실패는 호출 시점으로
+   * 미뤄야 IOPane 의 backstop 이 받을 수 있다.
+   */
+  it('모듈을 평가하는 것만으로 Intl.Segmenter 를 만들지 않는다', async () => {
+    const holder = Intl as unknown as { Segmenter?: typeof Intl.Segmenter };
+    const real = holder.Segmenter;
+    delete holder.Segmenter; // 지원하지 않는 브라우저를 흉내 낸다
+    try {
+      vi.resetModules();
+      // 최상위에서 Segmenter 를 만들면 이 import 자체가 거부된다.
+      const fresh = await import('./logic');
+      // 대신 실제로 자소를 셀 때 던진다 — 그 자리에는 backstop 이 있다.
+      expect(() => fresh.countText('가')).toThrow();
+      // Segmenter 를 쓰지 않는 계산은 그 환경에서도 멀쩡히 돌아야 한다.
+      expect(fresh.findInvisibleChars(`a${ZWSP}b`)).toHaveLength(1);
+    } finally {
+      holder.Segmenter = real;
+      vi.resetModules();
+    }
   });
 
   // 단어수는 뺐다. `\s+` 분할은 한국어에서 뜻이 없는 숫자를 만들고, 그 숫자를

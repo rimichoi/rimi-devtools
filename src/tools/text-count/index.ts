@@ -77,7 +77,25 @@ const mod: ToolModule = {
       invisible.setRows(invisibleRows);
     }
 
+    /*
+     * 역할 분담: 이 도구는 자기 패널 넷을 지울 줄 알고, IOPane 은 오류 문구를 그릴
+     * 자리를 안다. 그래서 여기서는 낡은 결과만 지우고 예외는 다시 던진다 — 지운
+     * 입력의 결과가 최신 입력의 결과인 척 화면에 남는 것이 최악의 실패 모드다.
+     *
+     * 실제로 터질 수 있는 경로가 있다: `Intl.Segmenter` 가 없는 브라우저
+     * (Firefox 125 미만)에서 `countText` 가 던진다. (`TextDecoder('euc-kr')` 부재는
+     * 던지지 않고 ToolResult 로 돌아와 EUC-KR 패널에만 오류가 붙는다.)
+     */
     function update(text: string): void {
+      try {
+        render(text);
+      } catch (err) {
+        reset();
+        throw err;
+      }
+    }
+
+    function render(text: string): void {
       // trim() 으로 빈 입력을 판정하면 안 된다 — JS 의 trim() 은 U+00A0(NBSP) 도
       // 지우므로, "NBSP 만 들어 있는 텍스트" 가 빈 입력으로 취급돼 이 도구에서
       // 가장 값진 검사(보이지 않는 문자)를 통째로 건너뛰게 된다.

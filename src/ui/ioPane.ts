@@ -144,15 +144,39 @@ export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneH
     outputBox.append(error, warn);
   }
 
+  /*
+   * output:false 갈래의 backstop 자리. transform 갈래는 결과 카드 안에 .io-error 를
+   * 갖고 있어서 예외를 그릴 데가 있었지만, 이쪽은 결과를 다른 컴포넌트가 그리므로
+   * 오류를 놓을 자리가 아예 없었다 — 입력 처리 중 예외가 나면 화면 어디에도 아무
+   * 말이 뜨지 않았다. 결과 패널들 위, 입력 바로 아래에 둔다(원인이 어느 입력인지가
+   * 위치로 드러난다). 비어 있으면 `.io-error:empty` 가 지우므로 평상시 자리를
+   * 차지하지 않는다.
+   */
+  const inputError = document.createElement('div');
+  inputError.className = 'io-error';
+
   pane.append(inputBox, ...(secondBox ? [secondBox] : []), ...(outputBox ? [outputBox] : []));
   wrap.append(pane);
+  if (inputOnly) wrap.append(inputError);
   root.append(wrap);
 
   function run(): void {
     // 결과를 다른 컴포넌트가 그리는 경우. 빈 입력에서도 부른다 — 도구가 자기
     // 결과를 빈 상태로 되돌릴 기회를 잃으면 지운 입력의 결과가 화면에 남는다.
     if (options.output === false) {
-      options.onInput(input.value);
+      inputError.textContent = '';
+      try {
+        options.onInput(input.value);
+      } catch (err) {
+        // 이 갈래도 아래 transform 갈래와 같은 이유로 감싼다. 다만 여기서 실제로
+        // 터지는 것은 "버그" 만이 아니다 — 브라우저가 도구가 쓰는 API 를 지원하지
+        // 않는 경우(글자수 세기의 Intl.Segmenter)가 여기로 온다. 새로고침으로는
+        // 해결되지 않으므로 새로고침을 권하지 않는다.
+        console.error('[rimi-devtools] 입력을 처리하지 못했습니다.', err);
+        inputError.textContent =
+          '계산 중 오류가 발생했습니다. 브라우저가 이 도구가 쓰는 기능을 지원하지 않을 수 있습니다 — ' +
+          `새로고침해도 해결되지 않습니다.\n${err instanceof Error ? err.message : String(err)}`;
+      }
       return;
     }
     if (!output || !error || !warn) return;
