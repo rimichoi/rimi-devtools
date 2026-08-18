@@ -274,19 +274,6 @@ body.no-scroll {
   color: var(--muted);
 }
 
-/* 이 제품의 핵심 약속을 모든 도구 화면에 상시 노출한다. 지금까지 EXIF 도구
- * 안쪽에만 한 줄로 적혀 있었다. */
-.privacy-badge {
-  flex: none;
-  padding: 3px var(--sp-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--fg-2);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
 #tool-root {
   display: flex;
   flex-direction: column;

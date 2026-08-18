@@ -34,13 +34,13 @@ function renderHeader(tool: Tool | null): void {
   desc.className = 'tool-desc';
   desc.textContent = tool.description;
 
-  // 이 제품의 핵심 약속. 지금까지 EXIF 도구 안에만 적혀 있어서, 나머지 아홉 개
-  // 도구를 쓰는 사람은 입력이 어디로 가는지 화면에서 확인할 방법이 없었다.
-  const badge = document.createElement('span');
-  badge.className = 'privacy-badge';
-  badge.textContent = '브라우저 안에서만 처리 · 전송 없음';
-
-  header.append(title, desc, badge);
+  // 여기에 "브라우저 안에서만 처리 · 전송 없음" 배지를 두었던 적이 있다. 뺐다 —
+  // 페이지가 스스로 신뢰를 주장하는 것은 증거가 아니다. 증거는 CSP 응답 헤더,
+  // 공개된 소스, 그리고 오리진 밖 요청이 하나라도 생기면 죽는 e2e/no-egress
+  // 가드다. 배지는 모든 화면에서 자리를 상시 차지하면서 그중 무엇도 증명하지
+  // 못했고, "전송 없음" 이라는 문구 자체도 부정확했다(동일 오리진 자산은
+  // 실제로 받아 온다).
+  header.append(title, desc);
 }
 
 let cleanup: (() => void) | null = null;
