@@ -131,6 +131,15 @@ export const tools: Tool[] = [
     category: 'calc',
     load: () => import('./tools/chmod/index').then((m) => m.default),
   },
+  {
+    id: 'totp',
+    name: '2차인증 OTP',
+    description:
+      '2차 인증 비밀키로 설정용 QR 과 otpauth URI 를 만들고, 지금 코드가 무엇인지 보여준다. 앱이 낸 코드가 맞는지도 확인한다.',
+    keywords: ['totp', 'otp', '2fa', 'mfa', '2차인증', 'qr', 'authenticator', 'otpauth', 'base32'],
+    category: 'encode',
+    load: () => import('./tools/totp/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {

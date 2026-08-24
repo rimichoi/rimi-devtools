@@ -97,6 +97,16 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
    * 값을 줘서 요약·경고 자리의 색까지 검사되게 한다.
    */
   chmod: { kind: 'text', values: ['4755'] },
+  /*
+   * totp 는 비밀키와 계정이 둘 다 있어야 QR·URI·코드가 채워진다. 비밀키는
+   * type=password 라 secret 항목으로, 발급자·계정은 text 입력이라 values 로 준다.
+   * 이 비밀키는 RFC 6238 의 공개 테스트 seed 라 비밀이 아니다.
+   */
+  totp: {
+    kind: 'text',
+    values: ['다우오피스', 'rimichoi@daou.co.kr'],
+    secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+  },
 };
 
 export function sampleFor(id: string): SampleInput {

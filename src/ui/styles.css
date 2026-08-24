@@ -1670,3 +1670,107 @@ input[type='checkbox']:checked::before {
 .chmod-panes > div {
   min-width: 0;
 }
+
+/* ── 2차인증 OTP ──────────────────────────────────────────────────────────
+ * 경고 줄은 .io-error / .io-warn 을 재사용한다. QR 만은 예외로 흑백 고정이다 —
+ * 테마 토큰을 쓰면 다크 테마에서 스캔이 안 된다.
+ */
+.totp-secret,
+.totp-verify {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.totp-secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.totp-secret-row input {
+  flex: 1 1 16rem;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+}
+.totp-secret-row button {
+  flex: none;
+}
+.totp-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--sp-3);
+}
+.totp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.totp-field input,
+.totp-field select {
+  border: 1px solid var(--border-strong);
+  min-width: 0;
+}
+.totp-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.totp-warnings:empty {
+  display: none;
+}
+.totp-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 900px) {
+  .totp-panes {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  }
+}
+.totp-panes > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.totp-qr-host {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-3);
+}
+.totp-qr {
+  width: 100%;
+  max-width: 15rem;
+  height: auto;
+  /* QR 은 조용한 여백(quiet zone)이 있어야 읽힌다. 배경은 SVG 안에서 흰색이다. */
+  border-radius: var(--r-md);
+}
+.totp-uri-card textarea {
+  min-height: 6rem;
+  border: 0;
+  border-radius: 0;
+  resize: vertical;
+}
+.totp-verdict {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--r-md);
+  font-size: var(--text-base);
+  line-height: 1.55;
+}
+.totp-verdict:empty {
+  display: none;
+}
+.totp-verdict[data-state='valid'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-fg);
+}
+.totp-verdict[data-state='mismatch'] {
+  border-color: var(--error);
+  background: var(--error-soft);
+  color: var(--error-fg);
+}
