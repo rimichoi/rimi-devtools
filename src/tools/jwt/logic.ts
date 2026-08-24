@@ -49,6 +49,17 @@ export type JwtOutcome = { kind: 'empty' } | { kind: 'jwe' } | JwtDecoded;
 /** RFC 7519 NumericDate 는 초 단위다. 이 값을 넘으면 밀리초로 넣었을 가능성을 의심한다. */
 const SUSPICIOUS_SECONDS = 1e11;
 
+/*
+ * `Date` 가 표현할 수 있는 범위는 ±8.64e15 밀리초, 곧 ±8.64e12 초다. 이를 넘으면
+ * `new Date(...)` 가 Invalid Date 가 되고 `Intl.DateTimeFormat.format` 이
+ * RangeError 를 던진다. 이 함수들은 실패를 예외가 아니라 ToolResult 로 돌려주기로
+ * 한 순수 함수이므로, 그 예외는 계약 위반일 뿐 아니라 화면에서는 더 나쁘게
+ * 드러났다 — 호출부의 결과 초기화가 통째로 건너뛰어져 **직전 토큰의 페이로드와
+ * "서명이 유효합니다" 판정이 새 토큰 화면에 그대로 남았다**. 시각으로 못 그리는
+ * 값은 그리지 않고 그렇다고 말한다.
+ */
+const MAX_DATE_SECONDS = 8.64e12;
+
 const CLAIM_LABEL: Record<TimeClaim, string> = {
   exp: 'exp (만료)',
   iat: 'iat (발급)',
@@ -126,7 +137,9 @@ function relativePhrase(claim: TimeClaim, seconds: number, nowSeconds: number): 
   const delta = seconds - nowSeconds;
   const magnitude = formatMagnitude(Math.abs(delta));
   if (claim === 'exp') {
-    return delta < 0 ? `${magnitude} 전에 만료됨` : `${magnitude} 뒤 만료`;
+    // RFC 7519 4.1.4 는 현재 시각이 exp **이전**이어야 한다고 정한다. 같으면
+    // 이미 무효이므로 경고와 문구가 함께 만료 쪽으로 넘어간다.
+    return delta <= 0 ? `${magnitude} 전에 만료됨` : `${magnitude} 뒤 만료`;
   }
   return delta < 0 ? `${magnitude} 전` : `${magnitude} 뒤`;
 }
@@ -151,6 +164,13 @@ function timeRowFor(
       severity: 'caution',
       message: `${claim} 값이 너무 큽니다 — 초가 아니라 밀리초로 넣은 값일 수 있습니다.`,
     });
+  }
+
+  if (Math.abs(raw) > MAX_DATE_SECONDS) {
+    return {
+      row: { claim, label, value: `시각으로 표현할 수 있는 범위를 벗어났습니다: ${raw}` },
+      warnings,
+    };
   }
 
   const value = [
@@ -237,10 +257,19 @@ export function decodeJwt(input: string, nowSeconds: number): ToolResult<JwtOutc
       severity: 'danger',
       message: 'alg 가 none 입니다. 서명이 없어 내용을 누구나 바꿔 넣을 수 있는 토큰입니다.',
     });
-  } else if (signature === '' && alg !== null) {
+  } else if (signature === '') {
+    /*
+     * 브리프 3절의 조건은 "서명이 비어 있는데 alg 가 none 이 아님" 이다. alg 키가
+     * 아예 없는 헤더도 none 이 아니므로 대상인데, 예전에는 `alg !== null` 가드
+     * 때문에 아무 경고도 나지 않았다. 브리프의 문구는 {alg} 자리를 전제하므로
+     * alg 가 없는 경우의 문장은 여기서 새로 정한다.
+     */
     warnings.push({
       severity: 'danger',
-      message: `서명이 비어 있는데 헤더는 ${alg} 로 서명됐다고 말합니다. 서명을 떼어낸 토큰일 수 있습니다.`,
+      message:
+        alg === null
+          ? '서명이 비어 있고 헤더에 alg 도 없습니다. 서명을 떼어낸 토큰일 수 있습니다.'
+          : `서명이 비어 있는데 헤더는 ${alg} 로 서명됐다고 말합니다. 서명을 떼어낸 토큰일 수 있습니다.`,
     });
   }
 
@@ -253,7 +282,7 @@ export function decodeJwt(input: string, nowSeconds: number): ToolResult<JwtOutc
 
   if (payload !== null) {
     const exp = payload['exp'];
-    if (typeof exp === 'number' && Number.isFinite(exp) && exp < nowSeconds) {
+    if (typeof exp === 'number' && Number.isFinite(exp) && exp <= nowSeconds) {
       warnings.push({ severity: 'danger', message: '이미 만료된 토큰입니다.' });
     }
     const nbf = payload['nbf'];
@@ -265,9 +294,16 @@ export function decodeJwt(input: string, nowSeconds: number): ToolResult<JwtOutc
     }
   }
 
-  // 비대칭 서명은 조용히 넘기지 않는다. 검증 칸을 비워두면 사용자가 "아무 말도
-  // 없으니 통과했나 보다" 로 읽는다.
-  if (alg !== null && /^(RS|ES|PS)/.test(alg)) {
+  /*
+   * 검증할 수 없는 alg 는 조용히 넘기지 않는다. 검증 칸을 비워두면 사용자가
+   * "아무 말도 없으니 통과했나 보다" 로 읽는다.
+   *
+   * 예전에는 RS/ES/PS 로 시작하는 것만 걸렀다. 그래서 EdDSA, HS1, 소문자 hs256,
+   * 뒤에 공백이 붙은 "HS256 " 같은 값이 비밀키를 채워도 경고 한 줄 없이 침묵했다.
+   * RFC 7515 의 alg 값은 대소문자를 구분하므로 hs256 은 HS256 이 아니다 —
+   * 관대하게 받아주는 대신 다르다고 말한다.
+   */
+  if (alg !== null && !isNone && !isSymmetricAlg(alg)) {
     warnings.push({
       severity: 'caution',
       message: `이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. ${alg} 는 검증하지 않습니다.`,

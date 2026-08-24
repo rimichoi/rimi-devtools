@@ -178,7 +178,26 @@ const mod: ToolModule = {
       verdict.dataset['state'] = state;
     }
 
+    /*
+     * 방어선. 근본 원인(시각 범위를 넘는 클레임에서 Intl 이 던지던 RangeError)은
+     * logic.ts 에서 고쳤지만, 이 도구의 최악 실패 모드는 "직전 토큰의 '서명이
+     * 유효합니다' 판정이 새 토큰 화면에 그대로 남는 것" 이다. 그 상태를 만드는
+     * 길은 결과를 비우기 전에 예외로 빠져나가는 것 하나뿐이므로, 어떤 예외가
+     * 나더라도 결과를 먼저 비운다. ioPane 의 backstop 은 입력 콜백만 감싸므로
+     * 비밀키 입력 경로(여기)는 그 밖에 있다.
+     */
     function recompute(): void {
+      try {
+        recomputeOnce();
+      } catch (thrown) {
+        generation++; // 진행 중이던 검증 결과도 stale 로 만든다
+        clearResults();
+        setVerdict('unverified', '비밀키를 입력하면 서명을 검증합니다.');
+        error.textContent = `토큰을 처리하지 못했습니다: ${String(thrown)}`;
+      }
+    }
+
+    function recomputeOnce(): void {
       // 입력이 바뀌면 진행 중이던 검증 결과는 전부 stale 이다.
       const gen = ++generation;
 

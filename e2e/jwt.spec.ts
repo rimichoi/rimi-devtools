@@ -231,3 +231,56 @@ test('다른 도구로 옮겨가면 비밀키가 남지 않는다', async ({ pag
   await expect(ui(page).secret).toHaveValue('');
   await expect(ui(page).verdict).toHaveText('비밀키를 입력하면 서명을 검증합니다.');
 });
+
+/*
+ * 교차 리뷰 B-1 회귀 가드. 시각으로 표현할 수 없는 exp 를 가진 토큰을 붙여넣었을
+ * 때 decodeJwt 가 예외로 빠져나가면, 화면 초기화가 통째로 건너뛰어져 **직전
+ * 토큰의 페이로드와 "서명이 유효합니다" 판정이 그대로 남는다**. 초록불을 먼저
+ * 만든 뒤에 재는 것이 핵심이다 — 첫 화면에서 재면 아무것도 증명하지 못한다.
+ */
+test('시각 범위를 넘는 exp 토큰이 직전 토큰의 "유효" 판정을 남기지 않는다', async ({ page }) => {
+  const { token, secret, verdict, payloadOut, error } = ui(page);
+
+  await token.fill(HS256);
+  await secret.fill(HS256_SECRET);
+  await expect(verdict).toHaveText('서명이 유효합니다.');
+  await expect(verdict).toHaveAttribute('data-state', 'valid');
+
+  // exp = 1.7e13 초. Date 의 상한(8.64e12 초)을 넘는다.
+  await token.fill('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDAwMDAwfQ.x');
+
+  await expect(verdict, '직전 토큰의 유효 판정이 남으면 안 된다').not.toHaveAttribute(
+    'data-state',
+    'valid',
+  );
+  await expect(payloadOut, '직전 토큰의 페이로드가 남으면 안 된다').toHaveValue(
+    '{\n  "exp": 17000000000000\n}',
+  );
+  await expect(error).toHaveText('');
+  await expect(page.locator('#tool-root .result-list dd')).toContainText(
+    '시각으로 표현할 수 있는 범위를 벗어났습니다: 17000000000000',
+  );
+});
+
+test('그 상태에서 비밀키를 타이핑해도 페이지가 터지지 않는다', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+
+  const { token, secret } = ui(page);
+  await token.fill('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDAwMDAwfQ.x');
+  await secret.fill('anything');
+  await secret.fill('anything-more');
+
+  expect(pageErrors, `잡히지 않은 예외가 났다: ${pageErrors.join(' | ')}`).toEqual([]);
+});
+
+test('모르는 alg 는 비밀키를 넣어도 침묵하지 않는다', async ({ page }) => {
+  const { token, secret, verdict, cautions } = ui(page);
+  await token.fill('eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJhIn0.zzz');
+  await secret.fill('anything');
+
+  await expect(verdict).toHaveText(
+    '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. EdDSA 는 검증하지 않습니다.',
+  );
+  await expect(cautions.filter({ hasText: 'EdDSA 는 검증하지 않습니다.' })).toHaveCount(1);
+});

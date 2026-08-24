@@ -256,3 +256,113 @@ describe('decodeJwt — 경고', () => {
     expect(decoded(HS256, 1699996400).warnings.filter((w) => w.severity === 'danger')).toEqual([]);
   });
 });
+
+describe('decodeJwt — 교차 리뷰에서 나온 회귀 가드', () => {
+  /*
+   * B-1. Date 로 표현할 수 있는 범위(±8.64e12 초)를 넘는 시간 값에서
+   * Intl.DateTimeFormat 이 RangeError 를 던졌다. decodeJwt 는 실패를 예외가
+   * 아니라 ToolResult 로 돌려주기로 한 순수 함수이므로 이건 계약 위반이고,
+   * 화면 쪽에서는 직전 토큰의 결과와 "서명이 유효합니다" 판정이 그대로 남았다.
+   */
+  it('Date 범위를 넘는 exp 에도 예외를 던지지 않고 결과를 돌려준다', () => {
+    // exp=1.7e13 초. Date 의 상한(8.64e12 초)을 넘는다.
+    const result = decodeJwt('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDAwMDAwfQ.x', 1700000000);
+    expect(result.ok).toBe(true);
+  });
+
+  it('Date 범위를 넘는 값은 시각으로 그리지 않고 범위를 벗어났다고 말한다', () => {
+    const value = decoded('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDAwMDAwfQ.x', 1700000000);
+    const row = value.timeRows.find((r) => r.claim === 'exp');
+    expect(row?.value).toBe('시각으로 표현할 수 있는 범위를 벗어났습니다: 17000000000000');
+  });
+
+  it('Date 범위 경계 바로 아래 값은 그대로 시각으로 그린다', () => {
+    // 8.64e12 초 = Date 의 정확한 상한. 여기까지는 표현된다.
+    const value = decoded('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjg2NDAwMDAwMDAwMDB9.x', 1700000000);
+    const row = value.timeRows.find((r) => r.claim === 'exp');
+    expect(row?.value).toContain('UTC 275760-09-13');
+  });
+
+  it('음수 쪽 범위 초과에도 예외를 던지지 않는다', () => {
+    // exp=-8.65e12 초
+    const result = decodeJwt('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOi04NjUwMDAwMDAwMDAwfQ.x', 1700000000);
+    expect(result.ok).toBe(true);
+  });
+
+  /*
+   * S-1. 이 단언이 fatal:true 를 실제로 고정한다. 이전 테스트는 헤더 0xff 에
+   * ok===false 만 봤는데, fatal 이 없어도 U+FFFD 가 되어 JSON.parse 가 어차피
+   * 실패했다 — 어떤 구현에서도 통과하는 공허한 단언이었다. 아래 페이로드는
+   * fatal 이 없으면 {"a":"\uFFFD"} 로 **JSON 파싱까지 성공한다**.
+   */
+  it('페이로드의 깨진 UTF-8 바이트를 대체 문자로 통과시키지 않는다', () => {
+    // 페이로드 바이트: {"a":"<0xff>"}  — JSON 구조는 멀쩡하고 문자열 안이 깨졌다
+    const result = decodeJwt('eyJhbGciOiJIUzI1NiJ9.eyJhIjoi_yJ9.x', 1700000000);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('페이로드를 UTF-8 로 읽을 수 없습니다.');
+  });
+
+  /*
+   * S-3. 브리프 3절의 조건은 "서명이 비어 있는데 alg 가 none 이 아님" 이다.
+   * alg 키가 아예 없는 헤더도 none 이 아니므로 대상인데, alg !== null 가드
+   * 때문에 아무 경고도 나지 않았다.
+   */
+  it('alg 키가 없고 서명도 비어 있으면 위험 경고를 낸다', () => {
+    const value = decoded('eyJ0eXAiOiJKV1QifQ.eyJzdWIiOiJhZG1pbiJ9.', 1700000000);
+    const warning = value.warnings.find((w) => w.severity === 'danger');
+    expect(warning?.message).toBe(
+      '서명이 비어 있고 헤더에 alg 도 없습니다. 서명을 떼어낸 토큰일 수 있습니다.',
+    );
+  });
+
+  /*
+   * S-2. HS/RS/ES/PS 어디에도 안 드는 alg 가 경고 목록에서 침묵했다.
+   * 사용자는 "아무 말도 없으니 통과했나 보다" 로 읽는다.
+   */
+  it('EdDSA 처럼 모르는 alg 도 검증하지 않는다고 알린다', () => {
+    expect(messages('eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJhIn0.zzz', 1700000000)).toContain(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. EdDSA 는 검증하지 않습니다.',
+    );
+  });
+
+  it('alg 는 대소문자를 구분한다 — 소문자 hs256 은 HS256 이 아니므로 알린다', () => {
+    // {"alg":"hs256"} — RFC 7515 의 alg 값은 대소문자를 구분한다
+    expect(messages('eyJhbGciOiJoczI1NiJ9.eyJzdWIiOiJhIn0.zzz', 1700000000)).toContain(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. hs256 는 검증하지 않습니다.',
+    );
+  });
+
+  it('제대로 된 HS256 에는 그 안내를 붙이지 않는다', () => {
+    const said = messages(HS256, 1700000000);
+    expect(said.some((m) => m.includes('검증하지 않습니다'))).toBe(false);
+  });
+
+  /*
+   * 브리프 2.1: "조각이 2개이거나 3번째가 빈 문자열이면 서명 없는 토큰이다".
+   * 기존 벡터는 전부 점으로 끝나 3조각 경로만 탔다 — 2조각 분기를 통째로
+   * 지워도 모든 테스트가 초록이었다.
+   */
+  it('점 없이 끝나는 2조각 토큰도 서명 없는 토큰으로 읽는다', () => {
+    const value = decoded('eyJhbGciOiJub25lIn0.eyJzdWIiOiJhIn0', 1700000000);
+    expect(value.signature).toBe('');
+    expect(value.payloadText).toBe('{\n  "sub": "a"\n}');
+    expect(value.warnings.map((w) => w.message)).toContain(
+      'alg 가 none 입니다. 서명이 없어 내용을 누구나 바꿔 넣을 수 있는 토큰입니다.',
+    );
+  });
+
+  /*
+   * RFC 7519 4.1.4: 현재 시각이 exp **이전**이어야 한다. 같으면 이미 무효다.
+   */
+  it('exp 가 현재 시각과 같으면 이미 만료된 것으로 본다', () => {
+    expect(messages('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDB9.x', 1700000000)).toContain(
+      '이미 만료된 토큰입니다.',
+    );
+  });
+
+  it('exp 가 1초 뒤면 아직 만료가 아니다', () => {
+    expect(messages('eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDB9.x', 1699999999)).not.toContain(
+      '이미 만료된 토큰입니다.',
+    );
+  });
+});

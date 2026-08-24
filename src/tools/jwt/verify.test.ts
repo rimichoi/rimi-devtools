@@ -95,3 +95,45 @@ describe('verifySignature — 검증 안 함', () => {
     expect(result.state).toBe('unverified');
   });
 });
+
+describe('verifySignature — 모르는 alg 에 침묵하지 않는다 (교차 리뷰 S-2)', () => {
+  /*
+   * 예전에는 RS/ES/PS 로 시작하는 것만 걸러내고, 그 밖의 모르는 alg 는 비밀키를
+   * 채웠는데도 "비밀키를 입력하면 서명을 검증합니다." 로 떨어졌다. 사용자는 이미
+   * 비밀키를 넣은 상태에서 넣으라는 말을 읽는다.
+   */
+  it('EdDSA 는 검증하지 않는다고 말한다', async () => {
+    const result = await verifySignature('EdDSA', 'a.b', 'zzz', 'anything');
+    expect(result.state).toBe('unverified');
+    expect(result.message).toBe(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. EdDSA 는 검증하지 않습니다.',
+    );
+  });
+
+  it('소문자 hs256 은 HS256 이 아니므로 검증하지 않는다고 말한다', async () => {
+    const result = await verifySignature('hs256', 'a.b', 'zzz', 'anything');
+    expect(result.message).toBe(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. hs256 는 검증하지 않습니다.',
+    );
+  });
+
+  it('뒤에 공백이 붙은 "HS256 " 도 다른 값으로 본다', async () => {
+    const result = await verifySignature('HS256 ', 'a.b', 'zzz', 'anything');
+    expect(result.message).toBe(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. HS256  는 검증하지 않습니다.',
+    );
+  });
+
+  it('alg 가 아예 없으면 그 사실을 말한다 — 비밀키를 넣으라고 하지 않는다', async () => {
+    const result = await verifySignature(null, 'a.b', 'zzz', 'anything');
+    expect(result.state).toBe('unverified');
+    expect(result.message).toBe('헤더에 alg 가 없어 서명을 검증할 수 없습니다.');
+  });
+
+  it('비밀키가 비어 있어도 모르는 alg 라는 사실을 먼저 말한다', async () => {
+    const result = await verifySignature('EdDSA', 'a.b', 'zzz', '');
+    expect(result.message).toBe(
+      '이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. EdDSA 는 검증하지 않습니다.',
+    );
+  });
+});

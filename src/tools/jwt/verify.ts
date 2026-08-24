@@ -33,14 +33,20 @@ export async function verifySignature(
   if (alg !== null && alg.toLowerCase() === 'none') {
     return { state: 'unverified', message: 'alg 가 none 이라 검증할 서명이 없습니다.' };
   }
-  if (alg !== null && /^(RS|ES|PS)/.test(alg)) {
+  if (alg === null) {
+    return { state: 'unverified', message: '헤더에 alg 가 없어 서명을 검증할 수 없습니다.' };
+  }
+  /*
+   * 검증할 수 없는 alg 는 전부 그 사실을 말한다. 예전에는 RS/ES/PS 로 시작하는
+   * 것만 걸러내고 나머지(EdDSA, HS1, 소문자 hs256, 뒤에 공백이 붙은 "HS256 ")는
+   * 일반 안내 문구로 떨어졌다 — 비밀키를 이미 넣은 사용자가 "비밀키를 입력하면
+   * 검증합니다" 를 읽고, 경고 목록에도 아무 줄이 없었다.
+   */
+  if (!isSymmetricAlg(alg)) {
     return {
       state: 'unverified',
       message: `이 도구는 대칭키(HS256/384/512) 서명만 검증합니다. ${alg} 는 검증하지 않습니다.`,
     };
-  }
-  if (!isSymmetricAlg(alg)) {
-    return { state: 'unverified', message: UNVERIFIED_HINT };
   }
   if (secret === '') {
     return { state: 'unverified', message: UNVERIFIED_HINT };
