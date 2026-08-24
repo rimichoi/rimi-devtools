@@ -1596,3 +1596,77 @@ input[type='checkbox']:checked::before {
 .cron-panes > div {
   min-width: 0;
 }
+
+/* ── chmod 권한 ───────────────────────────────────────────────────────────
+ * 새 색을 만들지 않는다. 경고 줄은 .io-error / .io-warn 을 재사용한다.
+ */
+.chmod-tool .io-pane textarea {
+  /* 모드는 한 줄이다. 붙여넣는 문서용 높이를 그대로 두면 빈 칸이 화면을 차지한다. */
+  min-height: 4rem;
+}
+.chmod-summary {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-left-color: var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-fg);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.chmod-summary:empty {
+  display: none;
+}
+.chmod-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.chmod-warnings:empty {
+  display: none;
+}
+.chmod-grid table {
+  border-collapse: collapse;
+  margin: var(--sp-3);
+}
+.chmod-grid th,
+.chmod-grid td {
+  padding: var(--sp-1) var(--sp-3);
+  text-align: center;
+  font-weight: 400;
+}
+.chmod-grid th[scope='row'] {
+  text-align: left;
+  color: var(--muted);
+}
+.chmod-grid th[scope='col'] {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.chmod-specials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+.chmod-specials label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  cursor: pointer;
+}
+.chmod-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 900px) {
+  .chmod-panes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.chmod-panes > div {
+  min-width: 0;
+}

@@ -122,6 +122,15 @@ export const tools: Tool[] = [
     category: 'calc',
     load: () => import('./tools/cron/index').then((m) => m.default),
   },
+  {
+    id: 'chmod',
+    name: 'chmod 권한',
+    description:
+      '8진수와 rwx 표기를 서로 바꾸고, 누가 무엇을 할 수 있는지와 위험한 설정을 알려준다. setuid · setgid · sticky 도 함께 읽는다.',
+    keywords: ['chmod', '권한', 'permission', '755', '644', 'rwx', 'setuid', 'sticky', '8진수', 'octal'],
+    category: 'calc',
+    load: () => import('./tools/chmod/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {

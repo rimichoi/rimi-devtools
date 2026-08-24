@@ -92,6 +92,11 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
    * Spring 6필드 표현식을 준다.
    */
   cron: { kind: 'text', values: ['0 0 09 08,13,21 * *'] },
+  /*
+   * chmod 는 모드가 없으면 결과 목록 둘이 빈 안내 문구로 남는다. 특수 비트가 있는
+   * 값을 줘서 요약·경고 자리의 색까지 검사되게 한다.
+   */
+  chmod: { kind: 'text', values: ['4755'] },
 };
 
 export function sampleFor(id: string): SampleInput {
