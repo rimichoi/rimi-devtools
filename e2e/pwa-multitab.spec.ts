@@ -41,6 +41,16 @@ test('여러 탭이 열려 있을 때, 동의하지 않은 다른 탭은 리로�
 
     const context = await browser.newContext();
     const pageA = await context.newPage();
+    /*
+     * 진단 로그가 실제로 그 순간에 찍히는지 함께 잰다. 이 로그는 재현되지 않는
+     * "새로고침을 눌러도 갱신이 안 된다" 를 다음에 잡기 위한 유일한 단서인데,
+     * 조용히 빠져도 아무도 모르면 정작 필요할 때 없다.
+     */
+    const swLogs: string[] = [];
+    pageA.on('console', (message) => {
+      const text = message.text();
+      if (text.startsWith('[rimi-devtools] SW ')) swLogs.push(text);
+    });
     await pageA.goto(BASE + '/');
     await pageA.locator('#tool-root[data-tool="json-format"]').waitFor();
     await pageA.evaluate(async () => {
@@ -95,6 +105,20 @@ test('여러 탭이 열려 있을 때, 동의하지 않은 다른 탭은 리로�
     // 탭 A 에서만 "새로고침"을 누른다. 탭 B 는 아무것도 누르지 않는다.
     await pageA.locator('.toast-update button:not(.toast-dismiss)').click();
     await pageA.waitForTimeout(5_000);
+
+    // 진단 로그가 토스트를 띄운 순간과 버튼을 누른 순간에 각각 남아야 한다.
+    expect(
+      swLogs.some((line) => line.includes('toast-shown')),
+      `토스트를 띄울 때 진단 로그가 없다: ${swLogs.join(' | ')}`,
+    ).toBe(true);
+    expect(
+      swLogs.some((line) => line.includes('refresh-clicked')),
+      `새로고침을 누를 때 진단 로그가 없다: ${swLogs.join(' | ')}`,
+    ).toBe(true);
+    expect(
+      swLogs.some((line) => line.includes('reload-path waiting=')),
+      `리로드 경로 진단 로그가 없다: ${swLogs.join(' | ')}`,
+    ).toBe(true);
 
     // 탭 A(동의한 탭)는 리로드되어 새 코드가 적용돼야 한다.
     expect(navA, '동의한 탭 A는 리로드됐어야 한다').toBeGreaterThanOrEqual(1);

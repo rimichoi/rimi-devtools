@@ -15,6 +15,33 @@ import { showToast } from '../ui/toast';
 // 안내를 못 받은 탭은 구 코드로 계속 정상 동작하고 입력도 날아가지 않는다.
 let activeToast: HTMLElement | null = null;
 
+/*
+ * 진단 로그.
+ *
+ * 사용자가 "토스트는 뜨는데 새로고침을 눌러도 갱신이 안 된다" 고 보고했는데,
+ * 재현을 세 가지 방식으로 시도해도(같은 탭 + update(), 등록 60초 경과 후,
+ * 영속 프로필로 재방문) 전부 정상 동작했다. 코드·CSP·SW 핸들러·CSS 도 배제했다.
+ * 깨진 순간의 상태를 못 보면 추측만 쌓이므로, 그 순간이 다시 왔을 때 사용자가
+ * 스니펫을 기억할 필요 없이 콘솔에 남게 한다.
+ *
+ * 사용자 데이터는 찍지 않는다 — service worker 등록 상태뿐이다.
+ */
+function logSwState(moment: string): void {
+  void navigator.serviceWorker.getRegistration().then(
+    (registration) => {
+      console.info(`[rimi-devtools] SW ${moment}`, {
+        installing: registration?.installing?.state ?? null,
+        waiting: registration?.waiting?.state ?? null,
+        active: registration?.active?.state ?? null,
+        controller: navigator.serviceWorker.controller?.scriptURL ?? null,
+      });
+    },
+    (err: unknown) => {
+      console.info(`[rimi-devtools] SW ${moment} — 등록을 읽지 못했습니다`, err);
+    },
+  );
+}
+
 export function setupUpdatePrompt(): void {
   const updateSW = registerSW({
     onNeedRefresh() {
@@ -53,6 +80,7 @@ function showRefreshToast(onClick: () => void): void {
   button.type = 'button';
   button.textContent = '새로고침';
   button.addEventListener('click', () => {
+    logSwState('refresh-clicked');
     void reloadOnceThisTabsUpdateActivates();
     onClick();
   });
@@ -70,6 +98,7 @@ function showRefreshToast(onClick: () => void): void {
   el.append(button, dismiss);
   host.append(el);
   activeToast = el;
+  logSwState('toast-shown');
 }
 
 // "새로고침" 을 누른 이 탭에서만 리로드를 건다. navigator.serviceWorker 의
@@ -88,6 +117,10 @@ function showRefreshToast(onClick: () => void): void {
 async function reloadOnceThisTabsUpdateActivates(): Promise<void> {
   const registration = await navigator.serviceWorker.getRegistration();
   const waiting = registration?.waiting;
+  console.info(
+    `[rimi-devtools] SW reload-path waiting=${waiting?.state ?? 'null'}` +
+      ` — ${waiting === undefined || waiting === null ? '대기 중인 워커가 없어 바로 리로드합니다' : '활성화를 기다립니다'}`,
+  );
 
   if (waiting && waiting.state !== 'activated' && waiting.state !== 'redundant') {
     await new Promise<void>((resolve) => {
@@ -101,5 +134,6 @@ async function reloadOnceThisTabsUpdateActivates(): Promise<void> {
     });
   }
 
+  console.info('[rimi-devtools] SW reload-now');
   location.reload();
 }
