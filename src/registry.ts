@@ -113,6 +113,15 @@ export const tools: Tool[] = [
     category: 'encode',
     load: () => import('./tools/jwt/index').then((m) => m.default),
   },
+  {
+    id: 'cron',
+    name: '크론 해석',
+    description:
+      '크론 표현식을 사람이 읽는 말로 풀고 다음 실행 시각을 보여준다. Spring 6필드와 표준 crontab 5필드를 모두 읽는다.',
+    keywords: ['cron', '크론', '스케줄', 'schedule', 'quartz', 'spring', '배치', 'batch', '주기'],
+    category: 'calc',
+    load: () => import('./tools/cron/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {

@@ -1549,3 +1549,50 @@ input[type='checkbox']:checked::before {
   border-radius: 0;
   resize: vertical;
 }
+
+/* ── 크론 해석 ────────────────────────────────────────────────────────────
+ * 새 색을 만들지 않는다. 경고 줄은 .io-error / .io-warn 을 그대로 재사용한다.
+ */
+.cron-tool .io-pane textarea {
+  /* 크론 표현식은 한 줄이다. 붙여넣는 문서용 높이를 그대로 두면 화면의 절반을
+   * 빈 칸이 차지한다. 컴포넌트를 새로 만드는 대신 높이만 낮춘다. */
+  min-height: 4rem;
+}
+.cron-summary {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-left-color: var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-fg);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.cron-summary:empty {
+  display: none;
+}
+.cron-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.cron-warnings:empty {
+  display: none;
+}
+/* 넓은 화면에서 필드 해석과 다음 실행을 같은 줄에 놓는다. 좁은 화면에서는
+ * 한 열로 접혀 가로 스크롤이 생기지 않는다. */
+.cron-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 900px) {
+  .cron-panes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.cron-panes > div {
+  min-width: 0;
+}

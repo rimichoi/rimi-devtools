@@ -86,6 +86,12 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
     ],
     secret: 'your-256-bit-secret',
   },
+  /*
+   * cron 은 표현식이 없으면 결과 목록 둘이 모두 빈 안내 문구로 남아, 결과 자리의
+   * 색과 좁은 화면 레이아웃이 한 번도 검사되지 않는다. 사내에서 실제로 쓰는
+   * Spring 6필드 표현식을 준다.
+   */
+  cron: { kind: 'text', values: ['0 0 09 08,13,21 * *'] },
 };
 
 export function sampleFor(id: string): SampleInput {
