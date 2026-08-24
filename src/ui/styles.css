@@ -537,6 +537,22 @@ input[type='checkbox']:checked::before {
   min-width: 0;
 }
 
+/*
+ * 도구 하나의 최상위 래퍼. 입력 카드 · 요약 배너 · 경고 · 결과 카드가 세로로
+ * 쌓이는 도구들이 쓴다.
+ *
+ * 이 규칙이 없어서 jwt · cron · chmod · totp 네 도구의 패널이 전부 맞붙어 있었다.
+ * 클래스 이름만 붙이고 정의를 안 썼는데, 래퍼는 그냥 블록이라 아무도 오류를
+ * 내지 않았고 대비·가로 스크롤을 재는 visual-contract 도 통과했다. 눈으로 봐야만
+ * 보이는 종류의 결함이다.
+ */
+.tool-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
 .io-pane {
   display: grid;
   grid-template-columns: 1fr 1fr;
