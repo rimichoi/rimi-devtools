@@ -186,3 +186,57 @@ test('넓은 화면에서 두 결과 카드가 같은 줄에 나란히 놓인다
   const row = await page.locator('#tool-root .chmod-panes').boundingBox();
   expect(right!.width).toBeGreaterThan(row!.width * 0.4);
 });
+
+/*
+ * 교차 리뷰가 잡은 것들의 회귀 가드. 화면에서 실제로 사실과 다른 문장이 뜨던
+ * 자리들이다.
+ */
+test('macOS ls -l 의 @ 가 붙은 줄을 받는다 — 이 저장소 파일들이 전부 그렇다', async ({ page }) => {
+  const { input, summary, error } = ui(page);
+  await input.fill('-rw-r--r--@ 1 rimichoi  staff   8267  8 24 15:54 index.ts');
+  await expect(error).toHaveText('');
+  await expect(summary).toHaveText('0644 · rw-r--r--');
+  await expect(detail(page, '파일 종류')).toHaveText('일반 파일');
+});
+
+test('ACL 표시 + 가 붙은 디렉터리 줄도 받는다', async ({ page }) => {
+  const { input, summary, error } = ui(page);
+  await input.fill('drwxr-xr-x+ 5 me staff 160 8 24 13:00 .');
+  await expect(error).toHaveText('');
+  await expect(summary).toHaveText('0755 · rwxr-xr-x');
+  await expect(detail(page, '파일 종류')).toHaveText('디렉터리');
+});
+
+test('디렉터리는 실행이 아니라 들어가기라고 말한다', async ({ page }) => {
+  const { input, lists } = ui(page);
+  await input.fill('drwxr-x---');
+  await expect(lists.nth(0).locator('dd').nth(0)).toHaveText('목록 보기, 만들기·지우기, 들어가기');
+  await expect(lists.nth(0).locator('dd').nth(1)).toHaveText('목록 보기, 들어가기');
+});
+
+test('setuid 가 걸린 디렉터리에 실행 이야기를 하지 않는다', async ({ page }) => {
+  const { input, cautions } = ui(page);
+  await input.fill('drwsr-xr-x');
+  await expect(cautions.filter({ hasText: 'setuid 는 디렉터리에서 무시됩니다' })).toHaveCount(1);
+  await expect(cautions.filter({ hasText: '실행하면' })).toHaveCount(0);
+});
+
+test('/tmp 를 잘못된 설정이라고 말하지 않는다', async ({ page }) => {
+  const { input, dangers, cautions } = ui(page);
+  await input.fill('drwxrwxrwt');
+  await expect(dangers).toHaveCount(0);
+  await expect(cautions.filter({ hasText: '남이 만든 파일은 지우지 못합니다' })).toHaveCount(1);
+});
+
+test('실행할 수 없는 setuid 에 실행 이야기를 하지 않는다', async ({ page }) => {
+  const { input, cautions } = ui(page);
+  await input.fill('-rwSr--r--');
+  await expect(cautions.filter({ hasText: '실행 권한이 없어 지금은 효과가 없습니다' })).toHaveCount(1);
+});
+
+test('chmod -R 을 통째로 붙여넣어도 읽는다', async ({ page }) => {
+  const { input, summary, error } = ui(page);
+  await input.fill('chmod -R 755 ./dist');
+  await expect(error).toHaveText('');
+  await expect(summary).toHaveText('0755 · rwxr-xr-x');
+});

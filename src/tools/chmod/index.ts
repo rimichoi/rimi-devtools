@@ -71,6 +71,14 @@ const mod: ToolModule = {
     gridHead.append(gridLabel);
 
     const table = document.createElement('table');
+    // 표에 프로그램적 이름을 준다. 시각적 제목이 위에 떠 있어도 표 노드 자체에
+    // 이름이 없으면, 표 목록으로 건너뛰는 스크린 리더 사용자는 머리글만 있는
+    // 이름 없는 표를 만난다. caption 은 시각적으로 감춘다(제목이 이미 보인다).
+    const caption = document.createElement('caption');
+    caption.textContent = '권한 고르기';
+    caption.className = 'visually-hidden';
+    table.append(caption);
+
     const headRow = document.createElement('tr');
     headRow.append(document.createElement('th'));
     for (const permission of PERMISSIONS) {
@@ -177,8 +185,10 @@ const mod: ToolModule = {
         return;
       }
 
-      const { mode, fileType } = result.value;
-      const description = describeMode(mode);
+      const { mode, fileType, fileKind } = result.value;
+      // 종류를 알아냈으면 설명도 그 종류로 한다. 디렉터리의 실행 비트는 '실행'이
+      // 아니라 '들어가기'이고, setuid 는 디렉터리에서 아예 무시된다.
+      const description = describeMode(mode, fileKind);
 
       summary.textContent = description.summary;
       warnings.replaceChildren();
@@ -194,7 +204,7 @@ const mod: ToolModule = {
       // 여기서 다시 recompute 로 되돌아오지 않는다.
       for (const box of boxes) box.input.checked = (mode & box.bit) !== 0;
 
-      permissionRows = classRows(mode);
+      permissionRows = classRows(mode, fileKind);
       classList.setRows(permissionRows);
 
       detailRows = [

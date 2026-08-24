@@ -252,3 +252,164 @@ describe('describeMode — 요약과 경고', () => {
     expect(describeMode(0o4755).command).toBe('chmod 4755 <파일>');
   });
 });
+
+describe('교차 리뷰가 지목한 것 — 광고한 입력 형태', () => {
+  /*
+   * macOS 의 ls -l 은 확장 속성이 있으면 `@`, ACL 이 있으면 `+` 를 한 글자 더
+   * 붙인다. 이 저장소 파일들부터가 전부 `@` 라서, 떼어내지 않으면 개발자가 자기
+   * 화면에서 복사한 줄이 거의 다 실패했다. placeholder 는 붙여넣어도 된다고
+   * 광고하고 있었다.
+   */
+  it('확장 속성 표시 @ 가 붙은 ls -l 줄을 읽는다', () => {
+    const value = parsed('-rw-r--r--@ 1 rimichoi  staff  8267  8 24 15:54 index.ts');
+    expect(value.mode).toBe(0o644);
+    expect(value.fileType).toBe('일반 파일');
+  });
+
+  it('ACL 표시 + 가 붙은 줄도 읽는다', () => {
+    const value = parsed('drwxr-xr-x+ 5 me staff 160 8 24 13:00 .');
+    expect(value.mode).toBe(0o755);
+    expect(value.fileKind).toBe('directory');
+  });
+
+  it('권한 9글자에 @ 만 붙은 형태도 읽는다', () => {
+    expect(parsed('rwxr-xr-x@').mode).toBe(0o755);
+  });
+
+  it('chmod 의 플래그를 건너뛴다 — -R 은 가장 흔한 형태다', () => {
+    expect(parsed('chmod -R 755 dir').mode).toBe(0o755);
+    expect(parsed('chmod -v 0644 file').mode).toBe(0o644);
+  });
+
+  it('종류 글자가 이상한 10글자는 그렇다고 말하되 엉뚱한 안내를 하지 않는다', () => {
+    const result = parseMode('zwxr-xr-xx');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('모드로 읽을 수 없습니다');
+  });
+
+  it('아주 긴 입력을 오류 문구에 통째로 되돌리지 않는다', () => {
+    const result = parseMode('x'.repeat(100000));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.length).toBeLessThan(200);
+  });
+});
+
+describe('파일과 디렉터리에서 같은 비트가 다른 뜻이다', () => {
+  it('디렉터리의 실행 비트는 실행이 아니라 들어가기다', () => {
+    expect(classRows(0o750, 'directory').map((r) => r.value)).toEqual([
+      '목록 보기, 만들기·지우기, 들어가기',
+      '목록 보기, 들어가기',
+      '권한 없음',
+    ]);
+  });
+
+  it('일반 파일은 그대로 읽기·쓰기·실행이다', () => {
+    expect(classRows(0o750, 'file')[0]?.value).toBe('읽기, 쓰기, 실행');
+  });
+
+  it('종류를 모르면 파일 기준 문구를 쓴다', () => {
+    expect(classRows(0o750)[0]?.value).toBe('읽기, 쓰기, 실행');
+  });
+
+  it('setuid 는 디렉터리에서 무시된다고 말한다 — 실행 이야기를 하지 않는다', () => {
+    const messages = describeMode(0o4755, 'directory').warnings.map((w) => w.message);
+    expect(messages).toContain('setuid 는 디렉터리에서 무시됩니다. 아무 효과가 없습니다.');
+    expect(messages.some((m) => m.includes('실행하면'))).toBe(false);
+  });
+
+  it('setgid 는 디렉터리에서 그룹 상속을 말한다', () => {
+    expect(describeMode(0o2755, 'directory').warnings.map((w) => w.message)).toContain(
+      '새로 만든 파일과 디렉터리가 이 디렉터리의 그룹을 물려받습니다.',
+    );
+  });
+
+  it('setgid 는 파일에서 그룹 권한 실행을 말한다', () => {
+    expect(describeMode(0o2755, 'file').warnings.map((w) => w.message)).toContain(
+      'setgid 가 걸려 있어 실행하면 그룹 권한으로 돕니다.',
+    );
+  });
+
+  it('일반 파일의 sticky 는 무시된다고 말한다', () => {
+    expect(describeMode(0o1644, 'file').warnings.map((w) => w.message)).toContain(
+      '일반 파일의 sticky 는 요즘 시스템에서 무시됩니다.',
+    );
+  });
+
+  it('디렉터리의 sticky 는 자기 파일만 지운다고 말한다', () => {
+    expect(describeMode(0o1755, 'directory').warnings.map((w) => w.message)).toContain(
+      'sticky 가 걸려 있어 자기가 만든 파일만 지울 수 있습니다 (/tmp 가 그렇습니다).',
+    );
+  });
+
+  it('종류를 모르면 양쪽을 다 말한다', () => {
+    expect(describeMode(0o1755).warnings.map((w) => w.message)).toContain(
+      'sticky 가 걸려 있습니다. 디렉터리면 자기가 만든 파일만 지울 수 있게 되고(/tmp 가 그렇습니다), 일반 파일에서는 무시됩니다.',
+    );
+  });
+
+  it('디렉터리의 기타 쓰기는 남의 파일까지 지울 수 있다고 말한다', () => {
+    expect(describeMode(0o777, 'directory').warnings.map((w) => w.message)).toContain(
+      '누구나 이 디렉터리에 파일을 만들고, 남의 파일도 지우거나 이름을 바꿀 수 있습니다.',
+    );
+  });
+});
+
+describe('1777 (/tmp) 을 잘못된 설정이라고 말하지 않는다', () => {
+  /*
+   * sticky 가 존재하는 이유가 정확히 1777 을 쓸 만하게 만드는 것이다. 예전에는
+   * "거의 항상 잘못된 설정" 이라는 위험 경고와 "/tmp 가 그렇습니다" 라는 설명이
+   * 한 화면에 같이 떴다.
+   */
+  it('sticky 가 걸린 1777 은 위험이 아니라 주의다', () => {
+    const warnings = describeMode(0o1777, 'directory').warnings;
+    expect(warnings.filter((w) => w.severity === 'danger')).toEqual([]);
+    expect(warnings.map((w) => w.message)).toContain(
+      '누구나 이 안에 파일을 만들 수 있습니다. 다만 sticky 가 걸려 있어 남이 만든 파일은 지우지 못합니다 (/tmp 가 그렇습니다).',
+    );
+  });
+
+  it('sticky 가 없는 777 디렉터리는 여전히 위험이다', () => {
+    expect(describeMode(0o777, 'directory').warnings.some((w) => w.severity === 'danger')).toBe(true);
+  });
+
+  it('같은 문장을 두 번 말하지 않는다', () => {
+    const messages = describeMode(0o1777, 'directory').warnings.map((w) => w.message);
+    expect(new Set(messages).size).toBe(messages.length);
+  });
+});
+
+describe('실행할 수 없는 setuid 에 실행 이야기를 하지 않는다', () => {
+  it('4644 는 대문자 S 이고, 실행 권한이 없다고 말한다', () => {
+    expect(describeMode(0o4644, 'file').warnings.map((w) => w.message)).toContain(
+      'setuid 가 걸려 있지만 소유자에게 실행 권한이 없어 지금은 효과가 없습니다.',
+    );
+  });
+
+  it('2644 도 같은 규칙이다', () => {
+    expect(describeMode(0o2644, 'file').warnings.map((w) => w.message)).toContain(
+      'setgid 가 걸려 있지만 소유자에게 실행 권한이 없어 지금은 효과가 없습니다.',
+    );
+  });
+});
+
+describe('쓰기가 열린 곳을 정확히 말한다', () => {
+  it('그룹과 기타가 둘 다 열렸으면 둘 다 말한다', () => {
+    expect(describeMode(0o4777, 'file').warnings.map((w) => w.message)).toContain(
+      'setuid 가 걸린 파일에 그룹과 기타 쓰기 권한까지 있습니다. 그 사용자가 내용을 바꿔 소유자 권한으로 실행시킬 수 있습니다.',
+    );
+  });
+
+  it('setgid 도 setuid 와 같은 등급으로 올라간다', () => {
+    const warning = describeMode(0o2775, 'file').warnings.find((w) => w.message.startsWith('setgid 가 걸린'));
+    expect(warning?.severity).toBe('danger');
+  });
+});
+
+describe('파일 종류 라벨', () => {
+  it('ls -l 의 종류 글자를 각각 옳게 읽는다', () => {
+    expect(parsed('brw-r--r--').fileType).toBe('블록 장치');
+    expect(parsed('crw-r--r--').fileType).toBe('문자 장치');
+    expect(parsed('prw-r--r--').fileType).toBe('이름 있는 파이프');
+    expect(parsed('srw-r--r--').fileType).toBe('소켓');
+  });
+});
