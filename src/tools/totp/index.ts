@@ -43,16 +43,30 @@ const PERIODS: readonly (readonly [string, string])[] = [
   ['60', '60초'],
 ];
 
-/** QR 을 SVG 로 그린다. createSvgTag() 는 문자열이라 innerHTML 이 필요해 쓰지 않는다. */
-function renderQr(host: HTMLElement, text: string): void {
+/**
+ * QR 을 SVG 로 그린다. createSvgTag() 는 문자열이라 innerHTML 이 필요해 쓰지 않는다.
+ *
+ * 성공 여부를 돌려준다. `qr.make()` 는 내용이 QR 용량(약 2300바이트)을 넘으면
+ * 예외를 던지는데, 그 예외가 호출부로 새면 결과 갱신이 통째로 건너뛰어져 화면이
+ * 찢어진다 — URI 와 경고는 새 설정으로 바뀌었는데 "지금 코드" 는 옛 설정 값에
+ * 얼어붙고, QR 은 사라졌는데 "이 QR 안에 비밀키가 있습니다" 는 그대로 남았다.
+ * 사용자에게 보이는 오류는 하나도 없었다. 직전 태스크의 BLOCKING 과 같은 부류다.
+ */
+function renderQr(host: HTMLElement, text: string): boolean {
   host.replaceChildren();
 
   const qr = qrcode(0, 'M');
   qr.addData(text);
-  qr.make();
+  try {
+    qr.make();
+  } catch {
+    return false;
+  }
 
   const count = qr.getModuleCount();
-  const margin = 2;
+  // ISO/IEC 18004 는 조용한 여백(quiet zone) 4모듈을 요구한다. 좁히면 어두운
+  // 배경 위에서 파인더 패턴 인식이 불안정해진다.
+  const margin = 4;
   const size = count + margin * 2;
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -83,6 +97,7 @@ function renderQr(host: HTMLElement, text: string): void {
   }
 
   host.append(svg);
+  return true;
 }
 
 function labelledInput(
@@ -153,6 +168,7 @@ const mod: ToolModule = {
       const bytes = new Uint8Array(20);
       crypto.getRandomValues(bytes);
       secret.value = encodeBase32(bytes).replace(/=+$/, '');
+      lastSecretValue = secret.value;
       secret.type = 'text';
       reveal.setAttribute('aria-pressed', 'true');
       reveal.textContent = '비밀키 숨기기';
@@ -306,28 +322,66 @@ const mod: ToolModule = {
       }
     }
 
+    /*
+     * otpauth URI 를 비밀키 칸에 통째로 넣는 것이 가장 흔한 사용법이라 자동으로
+     * 나눠 담는다. 다만 **키 입력마다** 하면 안 된다 — 대부분의 URI 는 secret=
+     * 파라미터가 앞에 있어서, 손으로 타이핑하면 그 지점까지만 쳤을 때 이미 파싱에
+     * 성공해 나머지를 통째로 잘라먹는다. 실제로 `otpauth://...&issuer=GitHub&digits=8`
+     * 을 타이핑하면 비밀키 칸에 `GEZ...&issuer=GitHub&digits=8` 이 남았다.
+     * 그래서 붙여넣기와 포커스 이탈에서만 나눈다.
+     */
+    function adoptUriIfPresent(): boolean {
+      if (!secret.value.trim().toLowerCase().startsWith('otpauth://')) return true;
+
+      const parsedUri = parseOtpauthUri(secret.value);
+      if (!parsedUri.ok) {
+        error.textContent = parsedUri.error;
+        clearResults();
+        return false;
+      }
+
+      const config = parsedUri.value;
+      secret.value = config.secret;
+      issuerField.input.value = config.issuer;
+      accountField.input.value = config.account;
+      algorithmSelect.value = config.algorithm;
+      // 목록에 없는 값이면 항목을 만들어 넣는다. 그러지 않으면 select.value 가
+      // '' 이 되고 parseInt('') 이 NaN 이 되어 URI 와 QR 에 NaN 이 박힌다.
+      adoptSelectValue(digitsSelect, String(config.digits), `${config.digits}자리`);
+      adoptSelectValue(periodSelect, String(config.period), `${config.period}초`);
+      return true;
+    }
+
+    function adoptSelectValue(select: HTMLSelectElement, value: string, label: string): void {
+      if (![...select.options].some((option) => option.value === value)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.append(option);
+      }
+      select.value = value;
+    }
+
+    /*
+     * 방어선. 근본 원인(QR 용량 초과에서 던지던 make())은 renderQr 에서 막았지만,
+     * 이 도구의 최악 실패 모드는 "새 설정 화면에 옛 코드가 얼어붙은 채 남는 것"
+     * 이다. 그 상태를 만드는 길은 결과를 비우기 전에 예외로 빠져나가는 것 하나뿐
+     * 이므로, 어떤 예외가 나더라도 결과를 먼저 비운다.
+     */
     function recompute(): void {
+      try {
+        recomputeOnce();
+      } catch (thrown) {
+        generation++;
+        clearResults();
+        error.textContent = `설정을 처리하지 못했습니다: ${String(thrown)}`;
+      }
+    }
+
+    function recomputeOnce(): void {
       // 설정이 바뀌면 진행 중이던 계산은 전부 stale 이다. tick() 이 이 값을 읽어
       // 자기 세대가 최신인지 확인한다.
       generation++;
-
-      // otpauth URI 를 비밀키 칸에 통째로 붙여넣는 것이 가장 흔한 사용법이다.
-      if (secret.value.trim().toLowerCase().startsWith('otpauth://')) {
-        const parsedUri = parseOtpauthUri(secret.value);
-        if (parsedUri.ok) {
-          const config = parsedUri.value;
-          secret.value = config.secret;
-          issuerField.input.value = config.issuer;
-          accountField.input.value = config.account;
-          algorithmSelect.value = config.algorithm;
-          digitsSelect.value = String(config.digits);
-          periodSelect.value = String(config.period);
-        } else {
-          error.textContent = parsedUri.error;
-          clearResults();
-          return;
-        }
-      }
 
       const config = currentConfig();
 
@@ -347,12 +401,25 @@ const mod: ToolModule = {
 
       uriArea.value = uri.value;
       renderWarnings(config);
-      renderQr(qrHost, uri.value);
-      qrNote.textContent =
-        '이 QR 안에 비밀키가 그대로 들어 있습니다. 화면 캡처를 공유하면 비밀키를 공유하는 것과 같습니다.';
+
+      if (renderQr(qrHost, uri.value)) {
+        qrNote.textContent =
+          '이 QR 안에 비밀키가 그대로 들어 있습니다. 화면 캡처를 공유하면 비밀키를 공유하는 것과 같습니다.';
+      } else {
+        // QR 이 없는데 QR 주의 문구를 남겨두면 화면이 서로 다른 말을 한다.
+        qrNote.textContent =
+          '발급자와 계정이 너무 길어 QR 로 담을 수 없습니다. 아래 URI 는 그대로 쓸 수 있습니다.';
+      }
 
       const decoded = decodeBase32(config.secret);
-      if (!decoded.ok) return;
+      if (!decoded.ok) {
+        // buildOtpauthUri 가 이미 같은 디코딩을 통과시켰으므로 여기는 도달하지
+        // 않는다. 그래도 조용히 빠져나가 옛 코드를 남기지 않도록 비운다.
+        liveConfig = null;
+        liveBytes = null;
+        codeList.setRows([]);
+        return;
+      }
 
       liveConfig = config;
       liveBytes = decoded.value;
@@ -382,7 +449,11 @@ const mod: ToolModule = {
           codeList.setError('코드를 계산하지 못했습니다.');
         });
 
-      void checkVerification(gen, config, bytes);
+      void checkVerification(gen, config, bytes).catch(() => {
+        if (gen !== generation) return;
+        verdict.textContent = '코드를 검증하지 못했습니다.';
+        verdict.dataset['state'] = 'mismatch';
+      });
     }
 
     async function checkVerification(
@@ -413,10 +484,56 @@ const mod: ToolModule = {
       verdict.dataset['state'] = ok ? 'valid' : 'mismatch';
     }
 
-    const inputs = [secret, issuerField.input, accountField.input, verifyField.input];
+    /*
+     * 검증 코드는 QR · URI · 경고와 아무 상관이 없다. 예전에는 이 칸도 recompute 에
+     * 묶여 있어서 여섯 자리를 치면 QR 을 열두 번 다시 그렸다(티커에서 고쳤던 것과
+     * 같은 문제가 여기 남아 있었다). 검증만 다시 돌린다.
+     */
+    function onVerifyInput(): void {
+      const config = liveConfig;
+      const bytes = liveBytes;
+      if (config === null || bytes === null) return;
+      void checkVerification(generation, config, bytes).catch(() => undefined);
+    }
+
+    /*
+     * URI 를 언제 나눠 담을지 정하는 규칙.
+     *
+     * paste 이벤트에만 기대면 안 된다 — 붙여넣기 말고도 값이 한꺼번에 들어오는
+     * 경로가 있고(브라우저 자동완성, 자동화 도구), paste 는 값이 아직 반영되기
+     * 전에 발화한다. 반대로 매 입력마다 나누면 손으로 타이핑할 때 secret= 까지만
+     * 친 순간 나머지를 잘라먹는다.
+     *
+     * 그래서 **한 글자씩 늘어난 경우만** 건드리지 않는다. 타이핑은 한 글자씩
+     * 늘어나고, 붙여넣기·자동완성·자동화는 한꺼번에 뛴다. 손으로 다 친 URI 는
+     * 포커스를 옮길 때(change) 나눠 담는다.
+     */
+    let lastSecretValue = secret.value;
+
+    function onSecretInput(): void {
+      const typedOneChar =
+        secret.value.length === lastSecretValue.length + 1 && secret.value.startsWith(lastSecretValue);
+      lastSecretValue = secret.value;
+
+      if (!typedOneChar && !adoptUriIfPresent()) return;
+      lastSecretValue = secret.value;
+      recompute();
+    }
+
+    function onSecretChange(): void {
+      // 포커스를 옮기는 순간, 손으로 다 친 URI 도 나눠 담는다.
+      if (!adoptUriIfPresent()) return;
+      lastSecretValue = secret.value;
+      recompute();
+    }
+
+    const configInputs = [issuerField.input, accountField.input];
     const selects = [algorithmSelect, digitsSelect, periodSelect];
-    for (const input of inputs) input.addEventListener('input', recompute);
+    for (const input of configInputs) input.addEventListener('input', recompute);
     for (const select of selects) select.addEventListener('change', recompute);
+    verifyField.input.addEventListener('input', onVerifyInput);
+    secret.addEventListener('input', onSecretInput);
+    secret.addEventListener('change', onSecretChange);
 
     // 코드는 시간이 지나면 바뀐다. 화면에 옛 코드를 남겨 두지 않는다.
     ticker = window.setInterval(tick, 1000);
@@ -426,8 +543,11 @@ const mod: ToolModule = {
     return () => {
       generation++; // 언마운트 후 도착하는 계산도 stale 로 취급한다
       if (ticker !== null) window.clearInterval(ticker);
-      for (const input of inputs) input.removeEventListener('input', recompute);
+      for (const input of configInputs) input.removeEventListener('input', recompute);
       for (const select of selects) select.removeEventListener('change', recompute);
+      verifyField.input.removeEventListener('input', onVerifyInput);
+      secret.removeEventListener('input', onSecretInput);
+      secret.removeEventListener('change', onSecretChange);
       // 비밀키를 DOM 에 남기지 않는다.
       secret.value = '';
       verifyField.input.value = '';

@@ -94,6 +94,34 @@ describe('decodeBase32 — 사람이 실제로 붙여넣는 모양', () => {
     expect(decodeBase32('M').ok).toBe(false);
     expect(decodeBase32('MZX').ok).toBe(false);
   });
+
+  /*
+   * 길이는 맞지만 마지막 글자의 남는 비트가 0 이 아닌 경우. 이 검사가 없으면
+   * 조용히 디코딩돼 "그럴듯한 엉뚱한 코드" 가 나온다 — 이 도구가 막겠다고
+   * 선언한 실패 그 자체다. 앞의 길이 검사만으로는 잡히지 않는다.
+   */
+  it('자투리 비트가 0 이 아니면 오류다', () => {
+    // 자투리가 생기는 길이는 2(2비트) · 4(4비트) · 5(1비트) · 7(3비트) 이다.
+    // 8글자는 정확히 5바이트라 자투리가 없다.
+    expect(decodeBase32('MB').ok).toBe(false); // 남는 2비트가 1
+    expect(decodeBase32('MZXX').ok).toBe(false); // 남는 4비트가 7
+    expect(decodeBase32('MZXW7').ok).toBe(false); // 남는 1비트가 1
+    expect(decodeBase32('MZXW6YT').ok).toBe(false); // 남는 3비트가 3
+  });
+
+  it('같은 길이라도 자투리가 0 이면 통과한다 — 길이만으로 거절하지 않는다', () => {
+    // 위와 길이가 같은 짝들이다. 길이 검사만 있으면 이쪽도 함께 거절된다.
+    expect(decodeBase32('MA').ok).toBe(true);
+    expect(decoded('MZXQ')).toEqual(ascii('fo'));
+    expect(decodeBase32('MZXW6').ok).toBe(true);
+    expect(decoded('MZXW6YQ')).toEqual(ascii('foob'));
+  });
+
+  it('패딩이 중간에 오면 그렇다고 말한다', () => {
+    const result = decodeBase32('MZ=XW');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('패딩(=) 은 맨 뒤에만 올 수 있습니다.');
+  });
 });
 
 describe('encodeBase32 — 왕복', () => {

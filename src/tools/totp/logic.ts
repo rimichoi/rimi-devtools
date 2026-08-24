@@ -70,7 +70,10 @@ export function decodeBase32(text: string): ToolResult<Uint8Array> {
     if (index === -1) {
       return {
         ok: false,
-        error: `Base32 에 없는 글자입니다: "${char}". A~Z 와 2~7 만 쓸 수 있습니다(0 · 1 · 8 · 9 는 쓰지 않습니다).`,
+        error:
+          char === '='
+            ? '패딩(=) 은 맨 뒤에만 올 수 있습니다.'
+            : `Base32 에 없는 글자입니다: "${char}". A~Z 와 2~7 만 쓸 수 있습니다(0 · 1 · 8 · 9 는 쓰지 않습니다).`,
       };
     }
     buffer = (buffer << 5) | index;
@@ -126,6 +129,20 @@ export function buildOtpauthUri(config: TotpConfig): ToolResult<string> {
 
   const decoded = decodeBase32(secret);
   if (!decoded.ok) return decoded;
+
+  /*
+   * parse 쪽은 digits 6~10 · period 1~600 을 강제하는데 build 쪽은 무검증이었다.
+   * 그 비대칭이 화면에서 `digits=NaN` 이 박힌 QR 로 드러났다 — 화면의 select 에
+   * 없는 값을 가진 정상 URI 를 붙여넣으면 select.value 가 '' 이 되고
+   * Number.parseInt('') 이 NaN 이 되는데, 그 NaN 이 검사 없이 URI 와 QR 로
+   * 흘러갔다. QR 은 멀쩡히 그려지므로 사용자는 그걸 스캔한다.
+   */
+  if (!Number.isInteger(config.digits) || config.digits < 6 || config.digits > 10) {
+    return { ok: false, error: `자릿수는 6~10 이어야 합니다: ${config.digits}` };
+  }
+  if (!Number.isInteger(config.period) || config.period < 1 || config.period > 600) {
+    return { ok: false, error: `주기는 1~600 초여야 합니다: ${config.period}` };
+  }
 
   const issuer = config.issuer.trim();
   /*

@@ -1744,8 +1744,8 @@ input[type='checkbox']:checked::before {
   width: 100%;
   max-width: 15rem;
   height: auto;
-  /* QR 은 조용한 여백(quiet zone)이 있어야 읽힌다. 배경은 SVG 안에서 흰색이다. */
-  border-radius: var(--r-md);
+  /* 모서리를 깎지 않는다. 라운딩이 깎는 자리가 정확히 파인더 패턴 세 모서리다. */
+  border-radius: 0;
 }
 .totp-uri-card textarea {
   min-height: 6rem;
