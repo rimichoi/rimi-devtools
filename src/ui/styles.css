@@ -1474,3 +1474,78 @@ input[type='checkbox']:checked::before {
     transition-duration: 0ms !important;
   }
 }
+
+/* ── JWT 디코더 ───────────────────────────────────────────────────────────
+ * 새 색을 만들지 않는다. 경고 줄은 .io-error / .io-warn 을 그대로 재사용하고,
+ * 서명 판정만 상태별 토큰을 골라 쓴다(유효는 --accent 계열, 불일치는 --error
+ * 계열, 검증 안 함은 중립). 대비는 e2e/visual-contract.spec.ts 가 두 테마에서
+ * 자동으로 잰다.
+ */
+.jwt-secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.jwt-secret-row {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.jwt-secret-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+}
+.jwt-secret-row button {
+  flex: none;
+}
+.jwt-verdict {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--r-md);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.jwt-verdict[data-state='valid'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-fg);
+}
+.jwt-verdict[data-state='mismatch'] {
+  border-color: var(--error);
+  background: var(--error-soft);
+  color: var(--error-fg);
+}
+.jwt-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.jwt-warnings:empty {
+  display: none;
+}
+/* 넓은 화면에서 헤더와 페이로드를 같은 줄에 놓는다. 좁은 화면에서는 한 열로
+ * 접혀 가로 스크롤이 생기지 않는다(visual-contract 가 잰다). */
+.jwt-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 900px) {
+  .jwt-panes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.jwt-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.jwt-card textarea {
+  min-height: 12rem;
+  border: 0;
+  border-radius: 0;
+  resize: vertical;
+}

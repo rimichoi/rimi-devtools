@@ -74,6 +74,18 @@ export const SAMPLE_INPUT: Record<string, SampleInput> = {
     values: ['ENC(xYIzsUiigr3pQj5xO0KWvg==)', 'root'],
     secret: 'test1!',
   },
+  /*
+   * jwt 는 비밀키가 없으면 서명 검증 자리가 "비밀키를 입력하면…" 안내로만 남아,
+   * 유효 판정의 색이 한 번도 검사되지 않는다. 그래서 secret 까지 채운다.
+   * 이 토큰과 비밀키는 node:crypto 로 생성해 실행 검증한 벡터다(HS256, 서명 유효).
+   */
+  jwt: {
+    kind: 'text',
+    values: [
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Iu2Zjeq4uOuPmSIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDAzNjAwfQ.aQGiu-ZTHs_BwR6lFho9PK5PZezSt5yh65zWYeZZwYc',
+    ],
+    secret: 'your-256-bit-secret',
+  },
 };
 
 export function sampleFor(id: string): SampleInput {

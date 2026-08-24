@@ -104,6 +104,15 @@ export const tools: Tool[] = [
     category: 'encode',
     load: () => import('./tools/jasypt/index').then((m) => m.default),
   },
+  {
+    id: 'jwt',
+    name: 'JWT 디코더',
+    description:
+      'JWT 의 헤더와 페이로드를 풀어 보고, 만료 시각과 위험 신호를 함께 알려준다. 비밀키를 넣으면 HS256 서명까지 검증한다.',
+    keywords: ['jwt', 'token', '토큰', '디코더', 'decode', 'jws', 'bearer', 'exp', '서명'],
+    category: 'encode',
+    load: () => import('./tools/jwt/index').then((m) => m.default),
+  },
 ];
 
 export function findTool(id: string): Tool | undefined {
