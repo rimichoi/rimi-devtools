@@ -17,8 +17,8 @@ import {
  *
  * numberForm 을 쓰지 않는 이유: 그쪽은 숫자 필드와 masks.ts 의 마스크를 전제한다.
  * 크론 표현식은 `0 0 9-18 * * MON-FRI` 처럼 자릿수도 구분자도 고정돼 있지 않아
- * 붙일 마스크가 없다. 입력이 한 줄이라 textarea 가 높으므로 CSS 로 낮춘다
- * (`.cron-tool` 규칙) — 컴포넌트를 새로 만들지는 않는다.
+ * 붙일 마스크가 없다. 입력이 한 줄이라 IOPane 의 `narrow` 옵션을 켠다 — 컴포넌트를
+ * 새로 만들지 않고 폭과 높이만 CSS 의 `.io-wrap-narrow` 에 맡긴다.
  *
  * 결과 개수는 5개로 둔다. "이 배치 언제 도냐" 에 답하려면 다음 한 번으로는
  * 주기가 안 보이고(매일인지 매주인지), 열 개는 화면만 차지한다.
@@ -32,7 +32,7 @@ function copyTextOf(rows: ResultRow[]): string {
 const mod: ToolModule = {
   mount(root) {
     const wrap = document.createElement('div');
-    wrap.className = 'tool-stack cron-tool';
+    wrap.className = 'tool-stack';
 
     const summary = document.createElement('div');
     summary.className = 'cron-summary';
@@ -55,6 +55,7 @@ const mod: ToolModule = {
     createIOPane(wrap, {
       inputLabel: '크론 표현식',
       placeholder: '0 0 8 * * *   (Spring 6필드)  또는  0 8 * * *  (표준 crontab 5필드)',
+      narrow: true,
       output: false,
       onInput: (input) => recompute(input),
     });

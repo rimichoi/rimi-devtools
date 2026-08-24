@@ -48,6 +48,16 @@ export interface IOPaneTransformOptions extends IOPaneBaseOptions {
   output?: true;
   outputLabel?: string;
   /**
+   * 이 갈래에서는 narrow 를 쓸 수 없다. 아래 IOPaneInputOnlyOptions.narrow 참고.
+   *
+   * `never` 로 못 박는 이유: 유니온에 넘기는 객체 리터럴의 잉여 속성 검사는
+   * "유니온의 어느 한쪽에 그 이름이 있으면" 통과시킨다. 그래서 `output` 을
+   * 생략한 채(이 저장소의 transform 도구 대부분이 그렇게 쓴다) `narrow: true` 를
+   * 적으면 아무 오류 없이 컴파일됐고, 런타임 가드가 조용히 무시했다 —
+   * 개발자가 기대한 동작이 경고 하나 없이 사라지는 상태였다.
+   */
+  narrow?: never;
+  /**
    * 두 번째로 편집 가능한 텍스트 입력이 필요한 도구용(예: JSON 비교의 왼쪽/오른쪽).
    * 지정하면 pane 이 입력 두 개 + 결과 3열이 되고, 두 입력 중 하나라도 비어 있는
    * 동안에는(둘 다 채워지기 전) transform 을 부르지 않는다 — 한쪽만 입력한 순간
@@ -70,6 +80,18 @@ export interface IOPaneTransformOptions extends IOPaneBaseOptions {
 export interface IOPaneInputOnlyOptions extends IOPaneBaseOptions {
   output: false;
   onInput: (input: string) => void;
+  /**
+   * 받는 값이 한 줄인 도구용. 카드를 --col-narrow 로 묶고 입력 높이를 두 줄로
+   * 낮춘다(크론 표현식, chmod 모드). 붙여넣는 문서용 폭·높이를 그대로 쓰면
+   * 40자짜리 값을 받는 칸이 1130px × 열두 줄로 벌어져, 칸의 모양이 무엇을 얼마나
+   * 넣는 곳인지 말해주지 못한다. 폭과 높이는 CSS 의 .io-wrap-narrow 가 정한다.
+   *
+   * 이 옵션이 base 가 아니라 여기 있는 이유: 폭을 좁히는 규칙은 pane 안의 모든
+   * textarea 에 걸리므로, output:true 와 조합하면 결과 카드까지 한 줄 높이로
+   * 짓눌린다. 값은 다 들어 있는데 보이는 곳만 67px 이라 사용자는 결과가
+   * 잘렸다고 읽는다. 그 조합을 타입 단계에서 불가능하게 만든다.
+   */
+  narrow?: boolean;
 }
 
 export type IOPaneOptions = IOPaneTransformOptions | IOPaneInputOnlyOptions;
@@ -82,8 +104,12 @@ export interface IOPaneHandle {
 
 export function createIOPane(root: HTMLElement, options: IOPaneOptions): IOPaneHandle {
   const wrap = document.createElement('div');
+  // narrow 는 input-only 갈래에만 있다. 좁힘 규칙이 pane 안의 모든 textarea 에
+  // 걸리므로 결과 카드가 있는 갈래에서는 켤 수 없어야 한다(타입이 이미 막지만,
+  // 여기서 한 번 더 좁혀야 유니온에서 속성을 읽을 수 있다).
+  const narrow = options.output === false && options.narrow === true;
   // 컨트롤 바와 pane 사이 수직 리듬을 CSS 로 잡을 수 있도록 이름을 준다.
-  wrap.className = 'io-wrap';
+  wrap.className = narrow ? 'io-wrap io-wrap-narrow' : 'io-wrap';
 
   if (options.controls?.length) {
     const bar = document.createElement('div');

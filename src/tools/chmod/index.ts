@@ -52,7 +52,7 @@ function copyTextOf(rows: ResultRow[]): string {
 const mod: ToolModule = {
   mount(root) {
     const wrap = document.createElement('div');
-    wrap.className = 'tool-stack chmod-tool';
+    wrap.className = 'tool-stack';
 
     const summary = document.createElement('div');
     summary.className = 'chmod-summary';
@@ -139,14 +139,28 @@ const mod: ToolModule = {
     let permissionRows: ResultRow[] = [];
     let detailRows: ResultRow[] = [];
 
-    const pane = createIOPane(wrap, {
+    /*
+     * 모드를 치는 칸과 권한을 누르는 격자는 같은 질문에 답하는 두 가지 방법이다.
+     * 세로로 쌓으면 격자 오른쪽에 화면 절반이 비고, 둘이 같은 값을 가리킨다는
+     * 것도 배치가 말해주지 못한다. 한 줄에 나란히 놓고, 그 모드가 무엇인지 말하는
+     * 요약·경고를 입력칸 아래에 붙여 왼쪽 열을 채운다.
+     */
+    const inputRow = document.createElement('div');
+    inputRow.className = 'chmod-input-row';
+    const inputCol = document.createElement('div');
+    inputCol.className = 'chmod-input-col';
+
+    const pane = createIOPane(inputCol, {
       inputLabel: '모드',
       placeholder: '755   0644   4755   rwxr-xr-x   -rwsr-xr-x   (ls -l 한 줄을 붙여넣어도 됩니다)',
+      narrow: true,
       output: false,
       onInput: (input) => recompute(input),
     });
 
-    wrap.append(summary, warnings, grid, panes, error);
+    inputCol.append(summary, warnings);
+    inputRow.append(inputCol, grid);
+    wrap.append(inputRow, panes, error);
 
     const classList = createResultList(classBox, {
       label: '누가 무엇을 할 수 있나',

@@ -553,6 +553,35 @@ input[type='checkbox']:checked::before {
   min-width: 0;
 }
 
+/*
+ * 한 줄짜리 값을 받는 입력 카드는 내용 폭에 맞춰 묶는다.
+ *
+ * 크론 표현식도 chmod 모드도 40자를 넘지 않는데 카드가 1130px 로 늘어나 있으면,
+ * 커서는 왼쪽 끝에 있고 테두리는 오른쪽 끝에 있어 칸의 모양이 "여기에 무엇을
+ * 얼마나 넣는 곳" 인지 아무것도 말해주지 못한다. .form-grid > div 가 이미 같은
+ * 이유로 같은 폭(--col-narrow)을 쓴다 — 새 폭을 만들지 않고 그 폭에 맞춘다.
+ */
+.io-wrap.io-wrap-narrow {
+  max-width: var(--col-narrow);
+}
+
+/*
+ * 문서용 높이(56vh·26vh)를 그대로 두면 한 줄 입력 아래에 빈 칸이 열 줄 남는다.
+ * 실제로 그려지는 높이는 textarea 의 rows=2 고유 높이(약 67px)다 — 이 값은 그
+ * 위로 26vh 가 올라오지 못하게 막는 상한이다.
+ *
+ * 넓은 화면에서는 두 도구의 placeholder 가 한 줄에 들어가고, 좁은 화면(430px
+ * 부근)에서는 두 줄이 된다. 상자가 두 줄이므로 어느 쪽이든 잘리지 않는다.
+ *
+ * 명시도를 (1,4,1) 로 올린 이유는 아래 .jasypt-encrypt-row 규칙 주석과 같다:
+ * 넘어야 할 벽이 `.io-pane.io-pane-1col textarea` (0,2,1) 와
+ * `#tool-root:has(.io-wrap + .section-heading) .io-pane textarea` (1,3,1) 둘인데,
+ * 같은 점수로 맞추면 파일 안 순서에 기대게 된다. 순서와 무관하게 이기도록 한다.
+ */
+#tool-root .io-wrap.io-wrap-narrow .io-pane.io-pane-1col textarea {
+  min-height: 2.9rem;
+}
+
 .io-pane {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -709,6 +738,15 @@ input[type='checkbox']:checked::before {
  *
  * 판별은 구조로 한다 — 도구 id 를 CSS 에 박지 않는다. `.io-wrap + .section-heading`
  * 은 "pane 다음에 다른 섹션이 이어진다" 는 뜻이고, 그게 정확히 이 경우다.
+ *
+ * 이 선택자의 명시도는 (1,3,1) 이고, **그 값이 계약이다.** 아래
+ * `.jasypt-encrypt-row` 규칙이 "넘어야 할 벽은 (1,3,1)" 이라고 적고 (1,4,1) 로
+ * 이기도록 짜여 있다. 여기에 클래스를 한 겹만 더해도 그 규칙이 조용히 죽는다 — 실제로
+ * `:not(.io-wrap-narrow)` 를 붙였다가 (1,5,1) 이 되어 jasypt 암호화 입력이
+ * 14vh 에서 26vh 로 되돌아갔고, e2e/jasypt.spec.ts 가 높이를 절대 픽셀
+ * (`< 250`)로 재고 있어 900px 뷰포트에서 26vh = 234px 로 통과해 버렸다.
+ *
+ * narrow 카드를 여기서 뺄 필요는 없다. 그쪽 규칙이 이미 (1,4,1) 이라 이긴다.
  */
 #tool-root:has(.io-wrap + .section-heading) .io-pane textarea {
   min-height: 26vh;
@@ -1086,6 +1124,11 @@ input[type='checkbox']:checked::before {
  * 앞엣것은 id 하나만 붙여도 이기므로 실제로 넘어야 할 벽은 뒤엣것 (1,3,1) 이다.
  * 같은 점수로 맞추면 파일 안 순서에 기대게 되므로, 클래스를 하나 더 얹어
  * (1,4,1) 로 순서와 무관하게 이긴다.
+ *
+ * **이 규칙은 위 (1,3,1) 이 (1,3,1) 로 남아 있는 동안에만 산다.** 저쪽에 클래스를
+ * 한 겹 더하면 여기가 조용히 죽는다 — 실제로 한 번 그렇게 죽었고, 그때
+ * e2e/jasypt.spec.ts 가 높이를 절대 픽셀로 재고 있어 아무도 잡지 못했다.
+ * 지금은 뷰포트 비율로 재므로 같은 일이 생기면 그 테스트가 빨개진다.
  */
 #tool-root .jasypt-encrypt-row .io-wrap .io-pane.io-pane-1col textarea {
   min-height: 14vh;
@@ -1497,10 +1540,18 @@ input[type='checkbox']:checked::before {
  * 계열, 검증 안 함은 중립). 대비는 e2e/visual-contract.spec.ts 가 두 테마에서
  * 자동으로 잰다.
  */
+/* 토큰은 길지만 화면을 다 채울 만큼은 아니다. 문서용 26vh 를 그대로 두면 두 줄
+ * 짜리 토큰 아래에 빈 칸이 여섯 줄 남고, 결과 카드가 늘 스크롤 밖에서 시작한다.
+ * 명시도는 위 .io-wrap-narrow 와 같은 이유로 (1,4,1) 이다 — 파일 순서에 기대지 않는다. */
+#tool-root .jwt-tool .io-wrap .io-pane.io-pane-1col textarea {
+  min-height: 7.5rem;
+}
+/* 비밀키는 한 줄짜리 값이다. 입력 카드와 같은 이유로 같은 폭에 묶는다. */
 .jwt-secret {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  max-width: var(--col-narrow);
 }
 .jwt-secret-row {
   display: flex;
@@ -1559,20 +1610,35 @@ input[type='checkbox']:checked::before {
   flex-direction: column;
   min-width: 0;
 }
+/* 8rem 은 6줄이다 — 흔한 페이로드(sub·iat·exp·중괄호)가 딱 들어가는 높이.
+ * 전에 쓰던 12rem 은 4줄짜리 헤더 아래에 빈 칸을 다섯 줄 남겼다. 더 긴 JSON 은
+ * 사용자가 모서리를 끌어 늘린다(resize: vertical). */
 .jwt-card textarea {
-  min-height: 12rem;
+  min-height: 8rem;
   border: 0;
   border-radius: 0;
   resize: vertical;
+}
+/*
+ * 시간 클레임은 헤더·페이로드와 같은 결과다. 공용 --col-narrow 를 그대로 받으면
+ * 혼자 절반 폭으로 서서 `3140일 전에 만료 / 됨` 처럼 값이 접힌다. 이 도구에서는
+ * 결과 줄 폭에 맞춘다.
+ */
+.jwt-tool .result-list-wrap {
+  max-width: none;
 }
 
 /* ── 크론 해석 ────────────────────────────────────────────────────────────
  * 새 색을 만들지 않는다. 경고 줄은 .io-error / .io-warn 을 그대로 재사용한다.
  */
-.cron-tool .io-pane textarea {
-  /* 크론 표현식은 한 줄이다. 붙여넣는 문서용 높이를 그대로 두면 화면의 절반을
-   * 빈 칸이 차지한다. 컴포넌트를 새로 만드는 대신 높이만 낮춘다. */
-  min-height: 4rem;
+/*
+ * 요약과 경고는 위 입력 한 줄에 대한 말이다. 입력이 620px 인데 그에 딸린 문장만
+ * 1130px 로 뻗어 있으면 무엇에 대한 말인지 폭이 거짓말을 한다 — totp 의 주의 줄과
+ * chmod 의 요약을 각각 설정 폭·입력 열에 묶은 것과 같은 기준이다.
+ */
+.cron-summary,
+.cron-warnings {
+  max-width: var(--col-narrow);
 }
 .cron-summary {
   padding: var(--sp-2) var(--sp-3);
@@ -1616,10 +1682,6 @@ input[type='checkbox']:checked::before {
 /* ── chmod 권한 ───────────────────────────────────────────────────────────
  * 새 색을 만들지 않는다. 경고 줄은 .io-error / .io-warn 을 재사용한다.
  */
-.chmod-tool .io-pane textarea {
-  /* 모드는 한 줄이다. 붙여넣는 문서용 높이를 그대로 두면 빈 칸이 화면을 차지한다. */
-  min-height: 4rem;
-}
 .chmod-summary {
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
@@ -1643,13 +1705,40 @@ input[type='checkbox']:checked::before {
 .chmod-warnings:empty {
   display: none;
 }
+/* 모드 입력 카드와 권한 격자를 한 줄에 놓는다. 좁아지면 격자가 아래로 내려간다. */
+.chmod-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+/* 이 줄에서만 왼쪽 열이 남은 폭을 먹는다. flex-basis 를 .io-wrap-narrow 자신에
+ * 두면 세로로 쌓이는 도구(크론)에서는 그 값이 높이가 되어 카드가 620px 로 늘어난다. */
+.chmod-input-col {
+  display: flex;
+  flex: 1 1 24rem;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  max-width: var(--col-narrow);
+}
+
+/*
+ * 격자의 폭은 위 .chmod-input-row 가 정한다.
+ *
+ * 전에는 격자가 .tool-stack(flex column)의 직계 자식이라 교차축으로 늘어났고,
+ * 3×3 체크박스가 1130px 에 흩뿌려져 있었다 — 행 라벨(소유자)은 화면 왼쪽 끝,
+ * 실행 칸은 오른쪽 끝이라 눈이 한 행을 따라가지 못했다. 이제는 늘어나지 않는
+ * flex 항목이라 내용 폭으로 선다. 여기에 align-self 를 다시 붙이지 말 것 —
+ * 지금 배치에서는 아무것도 하지 않는다(넣고 빼며 확인했다).
+ */
 .chmod-grid table {
   border-collapse: collapse;
-  margin: var(--sp-3);
+  margin: var(--sp-3) var(--sp-3) 0;
 }
 .chmod-grid th,
 .chmod-grid td {
-  padding: var(--sp-1) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
   text-align: center;
   font-weight: 400;
 }
@@ -1661,11 +1750,15 @@ input[type='checkbox']:checked::before {
   color: var(--muted);
   font-size: var(--text-sm);
 }
+/* 특수 비트는 3×3 표에 속하지 않는 별개의 축이다. 선 하나로 갈라 놓지 않으면
+ * 표의 네 번째 행처럼 읽힌다. */
 .chmod-specials {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-3) var(--sp-3);
+  gap: var(--sp-4);
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border-top: 1px solid var(--border);
 }
 .chmod-specials label {
   display: flex;
@@ -1697,6 +1790,11 @@ input[type='checkbox']:checked::before {
   flex-direction: column;
   gap: var(--sp-2);
 }
+/* 비밀키도 발급자·계정·설정도 한 줄짜리 값이다. 다른 도구의 입력 카드와 같은
+ * 폭에 묶는다 — 32글자 Base32 를 받는 칸이 970px 로 벌어져 있을 이유가 없다. */
+.totp-secret {
+  max-width: var(--col-narrow);
+}
 .totp-secret-row {
   display: flex;
   flex-wrap: wrap;
@@ -1711,10 +1809,33 @@ input[type='checkbox']:checked::before {
 .totp-secret-row button {
   flex: none;
 }
+/*
+ * 다섯 칸을 균등 분할하면 이메일이 들어가는 계정 칸과 `30초 (기본)` 한 마디를
+ * 고르는 주기 칸이 같은 폭을 받는다. 6열 격자 위에서 이름 둘은 3칸씩, 설정 셋은
+ * 2칸씩 쓴다 — 이름 한 줄, 설정 한 줄로 갈리므로 무엇이 값이고 무엇이 옵션인지도
+ * 줄이 대신 말해준다.
+ */
 .totp-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--sp-3);
+  max-width: var(--col-narrow);
+}
+.totp-fields > .totp-field {
+  grid-column: span 2;
+}
+.totp-fields > .totp-field:nth-child(-n + 2) {
+  grid-column: span 3;
+}
+/* 좁은 화면에서는 6열이 성립하지 않는다(칸 하나가 60px 밑으로 내려간다). */
+@media (max-width: 620px) {
+  .totp-fields {
+    grid-template-columns: 1fr;
+  }
+  .totp-fields > .totp-field,
+  .totp-fields > .totp-field:nth-child(-n + 2) {
+    grid-column: auto;
+  }
 }
 .totp-field {
   display: flex;
@@ -1727,13 +1848,21 @@ input[type='checkbox']:checked::before {
   border: 1px solid var(--border-strong);
   min-width: 0;
 }
+/* 이 주의들은 전부 위 설정 줄에 대한 것이다. 설정이 620px 인데 그에 딸린 경고만
+ * 1130px 로 뻗어 있으면 무엇에 대한 말인지 폭이 거짓말을 한다. */
 .totp-warnings {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  max-width: var(--col-narrow);
 }
 .totp-warnings:empty {
   display: none;
+}
+/* 지금 코드는 위 URI 카드와 같은 열의 같은 결과다. 공용 --col-narrow 를 그대로
+ * 받으면 혼자 좁아져 열 안에서 계단이 생긴다. */
+.totp-tool .result-list-wrap {
+  max-width: none;
 }
 .totp-panes {
   display: grid;
@@ -1763,11 +1892,17 @@ input[type='checkbox']:checked::before {
   /* 모서리를 깎지 않는다. 라운딩이 깎는 자리가 정확히 파인더 패턴 세 모서리다. */
   border-radius: 0;
 }
+/* 5rem 은 3줄이다. 오른쪽 열 폭(약 800px)에서 otpauth URI 는 두 줄을 쓰므로
+ * 한 줄 여유가 남는다 — 발급자·계정이 길어져도 바로 잘리지 않는다. */
 .totp-uri-card textarea {
-  min-height: 6rem;
+  min-height: 5rem;
   border: 0;
   border-radius: 0;
   resize: vertical;
+}
+/* 여섯 자리를 받는 칸이다. 열 폭을 그대로 받으면 800px 로 벌어진다. */
+.totp-verify .totp-field input {
+  max-width: 12rem;
 }
 .totp-verdict {
   padding: var(--sp-2) var(--sp-3);

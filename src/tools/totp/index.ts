@@ -251,10 +251,12 @@ const mod: ToolModule = {
     const codeBox = document.createElement('div');
     let codeRows: ResultRow[] = [];
 
-    rightColumn.append(uriCard, codeBox);
-    panes.append(qrCard, rightColumn);
-
     // ── 코드 검증 ────────────────────────────────────────────────────
+    /*
+     * "지금 코드" 바로 아래에 둔다. 이 칸이 하는 일은 그 값과 앱 화면의 값을
+     * 맞대보는 것 하나뿐인데, 화면 맨 아래에 전폭으로 떨어져 있으면 무엇과
+     * 비교하라는 것인지 배치가 말해주지 못한다.
+     */
     const verifyBox = document.createElement('section');
     verifyBox.className = 'totp-verify';
     const verifyField = labelledInput('앱이 보여주는 코드', 'totp-verify-code', '123456');
@@ -263,7 +265,10 @@ const mod: ToolModule = {
     verdict.className = 'totp-verdict';
     verifyBox.append(verifyField.row, verdict);
 
-    wrap.append(secretBox, fields, warnings, panes, verifyBox, error);
+    rightColumn.append(uriCard, codeBox, verifyBox);
+    panes.append(qrCard, rightColumn);
+
+    wrap.append(secretBox, fields, warnings, panes, error);
     root.append(wrap);
 
     const codeList = createResultList(codeBox, {

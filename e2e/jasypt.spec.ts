@@ -250,9 +250,19 @@ test('넓은 화면에서 암호화 입력과 결과가 같은 줄에 나란히 
   const row = await page.locator('#tool-root .jasypt-encrypt-row').boundingBox();
   expect(resultBox!.width).toBeGreaterThan(row!.width * 0.4);
 
-  // 설정값 하나 넣는 칸이 화면 3분의 1을 차지하지 않는다.
+  /*
+   * 설정값 하나 넣는 칸이 화면 3분의 1을 차지하지 않는다.
+   *
+   * 뷰포트 비율로 잰다. 되돌아갈 값이 26vh 인데 절대 픽셀(< 250)로 재고 있었더니,
+   * 900px 뷰포트에서 26vh = 234px 라 규칙이 실제로 죽었는데도 통과했다 — 공용
+   * 규칙의 명시도가 (1,3,1) 에서 (1,5,1) 로 올라가 이 도구의 (1,4,1) 규칙을
+   * 덮은 적이 있다(styles.css 의 :has(.io-wrap + .section-heading) 주석 참고).
+   */
   const textarea = await encryptInput.boundingBox();
-  expect(textarea!.height).toBeLessThan(250);
+  expect(
+    textarea!.height,
+    `암호화 입력이 ${Math.round(textarea!.height)}px 입니다 (뷰포트 900px)`,
+  ).toBeLessThan(900 * 0.2);
 });
 
 test('같은 평문을 두 번 암호화하면 값이 달라진다 (RandomSalt)', async ({ page }) => {
