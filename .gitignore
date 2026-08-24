@@ -24,3 +24,6 @@ pnpm-debug.log*
 # 설계 문서와 구현 계획은 저장소에 올리지 않는다. 커밋하려면 이 줄을 지운다.
 docs/design.md
 docs/plan.md
+
+# 리뷰용 서브에이전트 워크트리. 저장소에 들어가면 안 된다.
+.claude/

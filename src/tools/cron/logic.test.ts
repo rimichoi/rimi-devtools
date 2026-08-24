@@ -31,7 +31,7 @@ function parsed(expr: string) {
 }
 
 function runs(expr: string, base: string, count = 3): string[] {
-  return nextRuns(parsed(expr), kst(base), count).map(formatKst);
+  return nextRuns(parsed(expr), kst(base), count).runs.map(formatKst);
 }
 
 describe('시각 표기', () => {
@@ -243,8 +243,50 @@ describe('nextRuns — 경계', () => {
     ]);
   });
 
-  it('영원히 오지 않는 날짜는 빈 목록을 돌려준다 (2월 30일)', () => {
-    expect(runs('0 0 0 30 2 *', '2026-01-01T00:00:00')).toEqual([]);
+  it('영원히 오지 않는 날짜는 빈 목록을 돌려주고 불가능이라고 말한다 (2월 30일)', () => {
+    const result = nextRuns(parsed('0 0 0 30 2 *'), kst('2026-01-01T00:00:00'), 3);
+    expect(result.runs).toEqual([]);
+    expect(result.impossible).toBe(true);
+    expect(result.truncated).toBe(false);
+  });
+
+  /*
+   * 교차 리뷰(sonnet)가 잡은 결함의 회귀 가드. 탐색 간격을 9년으로 뒀을 때,
+   * 일·월·요일이 함께 제한된 멀쩡한 표현식이 "실행되지 않습니다" 로 나왔다.
+   * 1900~2400년 구간의 모든 (월, 일, 요일) 조합을 훑어 최악 간격을 재보니
+   * 40년이었다(2월 29일이면서 특정 요일).
+   *
+   * 아래 기대값은 내가 지어낸 것이 아니라 Spring 5.3.19 CronExpression 에
+   * 직접 물어본 답이다.
+   */
+  it('일·월·요일이 함께 제한돼 12년 뒤에나 도는 표현식도 찾아낸다', () => {
+    expect(runs('0 0 9 1 1 MON', '2091-06-01T00:00:00')).toEqual([
+      '2103-01-01T09:00:00',
+      '2114-01-01T09:00:00',
+      '2120-01-01T09:00:00',
+    ]);
+  });
+
+  it('2월 29일이면서 월요일 — 간격이 40년까지 벌어져도 찾아낸다', () => {
+    expect(runs('0 0 0 29 2 MON', '2000-01-01T00:00:00')).toEqual([
+      '2016-02-29T00:00:00',
+      '2044-02-29T00:00:00',
+      '2072-02-29T00:00:00',
+    ]);
+  });
+
+  it('그 표현식은 불가능도 잘림도 아니다 — 실제로 도는 배치다', () => {
+    const result = nextRuns(parsed('0 0 9 1 1 MON'), kst('2091-06-01T00:00:00'), 3);
+    expect(result.impossible).toBe(false);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('4월 31일처럼 그 달에 없는 날도 불가능이다', () => {
+    expect(nextRuns(parsed('0 0 0 31 4 *'), kst('2026-01-01T00:00:00'), 3).impossible).toBe(true);
+  });
+
+  it('31일이 있는 달이 하나라도 있으면 불가능이 아니다', () => {
+    expect(nextRuns(parsed('0 0 0 31 4,5 *'), kst('2026-01-01T00:00:00'), 1).impossible).toBe(false);
   });
 
   it('연말을 넘어간다', () => {
@@ -274,5 +316,140 @@ describe('설명 문구', () => {
 
   it('월이 지정되면 앞에 붙는다', () => {
     expect(parsed('0 0 0 1 1 *').summary).toBe('매년 1월 1일 00:00:00');
+  });
+});
+
+describe('교차 리뷰(opus)가 지목한 사각지대', () => {
+  /*
+   * H1. 이 도구의 존재 이유가 AND/OR 문구인데, 그 문구를 재는 단언이 없었다.
+   * spring6 의 "이면서" 를 crontab5 의 "또는" 으로 바꿔도 전 테스트가 통과했다.
+   */
+  it('Spring 6필드의 요약은 둘 다 맞아야 한다고 말한다', () => {
+    expect(parsed('0 0 12 1 * MON').summary).toBe('매월 1일이면서 월요일인 날 12:00:00');
+  });
+
+  it('표준 crontab 5필드의 요약은 둘 중 하나라고 말한다', () => {
+    expect(parsed('0 12 1 * MON').summary).toBe('매월 1일 또는 월요일 12:00:00');
+  });
+
+  /*
+   * B3. 월이 지정되는 순간 요약이 요일 조건을 통째로 버렸다. 실행 목록은 AND 로
+   * 맞게 나오는데 요약만 틀려서 화면 안에서 자기모순이었다.
+   */
+  it('월이 지정돼도 요일 조건을 요약에서 버리지 않는다', () => {
+    expect(parsed('0 0 12 1 1 MON').summary).toBe('매년 1월 1일이면서 월요일인 날 12:00:00');
+  });
+
+  it('월 + 요일만 지정된 경우도 요일이 남는다', () => {
+    expect(parsed('0 0 12 * 1 MON').summary).toBe('매년 1월 월요일 12:00:00');
+  });
+
+  /*
+   * H3. `W` 를 거절한다는 주장을 재는 단언이 L 과 # 뿐이었다. 정규식에서 W 를
+   * 빼도 전 테스트가 통과했다.
+   */
+  it('일 필드의 15W 를 거절한다', () => {
+    const result = parseCron('0 0 12 15W * *');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('L · W · # 는 지원하지 않습니다');
+  });
+
+  it('LW 를 거절한다', () => {
+    expect(parseCron('0 0 12 LW * *').ok).toBe(false);
+  });
+
+  it('요일 필드의 5L 을 거절한다', () => {
+    expect(parseCron('0 0 12 * * 5L').ok).toBe(false);
+  });
+
+  /* H5. 0개를 요청했는데 1개를 돌려줘도 아무도 몰랐다. */
+  it('0개를 요청하면 0개를 돌려준다', () => {
+    expect(nextRuns(parsed('0 0 8 * * *'), kst('2026-01-01T00:00:00'), 0).runs).toEqual([]);
+  });
+
+  it('음수를 요청해도 0개를 돌려준다', () => {
+    expect(nextRuns(parsed('0 0 8 * * *'), kst('2026-01-01T00:00:00'), -3).runs).toEqual([]);
+  });
+
+  /*
+   * S2. 표준 crontab 의 OR 규칙은 "값이 제한됐는가" 가 아니라 "필드 첫 글자가
+   * `*` 인가" 로 갈린다(Vixie 의 DOM_STAR / DOW_STAR). 그래서 일 필드가
+   * 와일드카드+스텝이면 OR 이 아니라 AND 다.
+   */
+  it('5필드에서 일 필드가 와일드카드+스텝이면 OR 이 아니라 AND 다', () => {
+    // 홀수일 "이면서" 월요일. OR 이었다면 홀수일이 전부 나온다.
+    expect(runs('0 12 */2 * MON', '2026-01-01T00:00:00')).toEqual([
+      '2026-01-05T12:00:00',
+      '2026-01-19T12:00:00',
+      '2026-02-09T12:00:00',
+    ]);
+  });
+
+  it('그 경우에는 방언이 갈린다는 경고도 내지 않는다', () => {
+    expect(parsed('0 12 */2 * MON').warnings).toEqual([]);
+    expect(parsed('0 0 12 */2 * MON').warnings).toEqual([]);
+  });
+});
+
+describe('요일 규격 — Spring 실측으로 확정한 것', () => {
+  /*
+   * 처음엔 SUN=0 으로 적었고 흔한 표현식은 우연히 맞았다. 아래는 어긋났던 셋이다.
+   * 기대값은 전부 Spring 5.3.19 에 직접 물어본 답이다(vectors.ts 에도 들어 있다).
+   */
+  it('요일 이름은 SUN=7 이라 SAT-SUN 이 거꾸로가 아니다', () => {
+    expect(parsed('0 0 0 * * SAT-SUN').fields.find((f) => f.key === 'dow')?.values).toEqual([0, 6]);
+  });
+
+  it('MON-SUN 은 1-7, 곧 모든 요일이다', () => {
+    expect(parsed('0 0 0 * * MON-SUN').fields.find((f) => f.key === 'dow')?.values).toEqual([
+      0, 1, 2, 3, 4, 5, 6,
+    ]);
+  });
+
+  it('와일드카드는 0-7 이 아니라 1-7 로 펼쳐진다', () => {
+    // 1,3,5,7 = 월·수·금·일. 0-7 로 펼치면 일·화·목·토가 되어 전부 어긋난다.
+    expect(parsed('0 0 0 * * */2').fields.find((f) => f.key === 'dow')?.values).toEqual([0, 1, 3, 5]);
+  });
+
+  it('범위의 시작이 7이면 0으로 낮춘다 — 7-7 은 매일이다', () => {
+    expect(parsed('0 0 0 * * 7-7').fields.find((f) => f.key === 'dow')?.values).toEqual([
+      0, 1, 2, 3, 4, 5, 6,
+    ]);
+  });
+
+  it('7-0 은 일요일 하나다', () => {
+    expect(parsed('0 0 0 * * 7-0').fields.find((f) => f.key === 'dow')?.values).toEqual([0]);
+  });
+
+  it('0/2 는 와일드카드와 달리 0부터 시작한다', () => {
+    // 0,2,4,6 = 일·화·목·토
+    expect(parsed('0 0 0 * * 0/2').fields.find((f) => f.key === 'dow')?.values).toEqual([0, 2, 4, 6]);
+  });
+});
+
+describe('? 는 일·요일 필드에서만 쓸 수 있다', () => {
+  /* Spring 실측: 나머지 필드의 ? 는 파싱 오류다. 조용히 받아주면 "잘 돈다" 는 틀린 신호가 된다. */
+  it('분 필드의 ? 를 거절한다', () => {
+    const result = parseCron('0 ? 12 * * *');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('? 는 일·요일 필드에서만 쓸 수 있습니다. 분 필드에는 * 를 쓰세요.');
+  });
+
+  it('월 필드의 ? 를 거절한다 — Quartz 습관으로 가장 흔한 실수다', () => {
+    expect(parseCron('0 0 12 * ? *').ok).toBe(false);
+  });
+
+  it('초·시 필드의 ? 도 거절한다', () => {
+    expect(parseCron('? 0 12 * * *').ok).toBe(false);
+    expect(parseCron('0 0 ? * * *').ok).toBe(false);
+  });
+
+  it('? 에 간격을 붙이면 거절한다', () => {
+    expect(parseCron('0 0 0 * * ?/2').ok).toBe(false);
+  });
+
+  it('일·요일 필드의 ? 는 그대로 받는다', () => {
+    expect(parseCron('0 0 12 ? * MON').ok).toBe(true);
+    expect(parseCron('0 0 12 * * ?').ok).toBe(true);
   });
 });

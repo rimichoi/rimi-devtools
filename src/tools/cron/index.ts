@@ -1,7 +1,14 @@
 import type { ToolModule } from '../../types';
 import { createIOPane } from '../../ui/ioPane';
 import { createResultList, type ResultRow } from '../../ui/resultList';
-import { formatKst, formatUtc, nextRuns, parseCron, type CronParsedValue } from './logic';
+import {
+  SEARCH_HORIZON_YEARS,
+  formatKst,
+  formatUtc,
+  nextRuns,
+  parseCron,
+  type CronParsedValue,
+} from './logic';
 
 /*
  * 컴포넌트 선택 근거(ioPane.ts 상단 규칙 4번): 입력은 텍스트 한 덩어리고 결과는
@@ -116,15 +123,32 @@ const mod: ToolModule = {
       fieldList.setRows(fieldRows);
 
       // 현재 시각은 여기서 한 번만 읽는다. logic.ts 는 시계를 읽지 않는다.
-      const runs = nextRuns(value, Date.now(), RUN_COUNT);
-      runRows = runs.map((at, index) => ({
+      const schedule = nextRuns(value, Date.now(), RUN_COUNT);
+      runRows = schedule.runs.map((at, index) => ({
         label: `${index + 1}번째`,
         value: `${formatKst(at).replace('T', ' ')} KST · ${formatUtc(at).replace('T', ' ')} UTC`,
       }));
+
+      /*
+       * "영원히 안 돈다" 와 "아직 멀어서 여기까지만 찾았다" 는 사용자에게 전혀
+       * 다른 소식이다. 예전에는 둘을 한 문구로 뭉쳐서, 12년 뒤에 실제로 도는
+       * 배치에 "2월 30일처럼 오지 않는 날짜일 수 있습니다" 라고 답했다.
+       */
       runList.setRows(
         runRows,
-        '앞으로 9년 안에 실행되지 않습니다. 2월 30일처럼 오지 않는 날짜일 수 있습니다.',
+        schedule.impossible
+          ? '달력에 없는 날짜라 영원히 실행되지 않습니다 (2월 30일처럼).'
+          : `앞으로 ${SEARCH_HORIZON_YEARS}년 안에는 실행되지 않습니다.`,
       );
+
+      // 일부만 찾은 경우도 조용히 넘기지 않는다 — 헤더는 5회라고 말하는데 목록이
+      // 한 줄뿐이면 사용자는 그게 전부인 줄 안다.
+      if (schedule.truncated && schedule.runs.length > 0) {
+        const note = document.createElement('div');
+        note.className = 'io-warn';
+        note.textContent = `앞으로 ${SEARCH_HORIZON_YEARS}년 안에서 ${schedule.runs.length}개만 찾았습니다. 그 뒤에도 실행될 수 있습니다.`;
+        warnings.append(note);
+      }
     }
 
     root.append(wrap);

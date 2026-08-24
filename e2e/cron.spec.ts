@@ -131,7 +131,7 @@ test('오지 않는 날짜는 빈 목록과 함께 그 이유를 말한다', asy
 
   await expect(runValues(page)).toHaveCount(0);
   await expect(page.locator('#tool-root .result-list-wrap').nth(1).locator('.result-empty')).toHaveText(
-    '앞으로 9년 안에 실행되지 않습니다. 2월 30일처럼 오지 않는 날짜일 수 있습니다.',
+    '달력에 없는 날짜라 영원히 실행되지 않습니다 (2월 30일처럼).',
   );
 });
 
