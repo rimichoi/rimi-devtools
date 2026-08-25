@@ -1281,26 +1281,6 @@ input[type='checkbox']:checked::before {
   color: var(--on-error);
 }
 
-.toast-update {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.toast-update button {
-  padding: 4px var(--sp-2);
-  border: 0;
-  background: var(--on-accent);
-  color: var(--accent-fg);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.toast-update button:hover {
-  background: var(--on-accent);
-  border-color: transparent;
-}
-
 .toast-dismiss {
   flex: none;
   margin-left: auto;

@@ -5,7 +5,7 @@ import { renderSidebar } from './shell/sidebar';
 import { prefs } from './shell/prefs';
 import { applyTheme } from './shell/theme';
 import { createPalette } from './shell/palette';
-import { setupUpdatePrompt } from './shell/updateToast';
+import { setupServiceWorker } from './shell/serviceWorker';
 import { showToast } from './ui/toast';
 import type { Tool, ToolModule } from './types';
 
@@ -82,11 +82,12 @@ async function render(): Promise<void> {
   // 어느 쪽이든 원인 오류를 콘솔에 남긴다 — 한 덩어리 catch 가 스택 트레이스까지
   // 통째로 삼키는 바람에, 재현하려는 사람에게 아무 단서도 남지 않았다.
 
-  // 1) 청크를 못 받아온 경우. 다른 탭이 새 배포를 먼저 수락하면, 이 탭이 아직
-  // 열지 않은 도구의 청크는 (해시가 바뀌어) service worker 의 새 precache 에도
-  // 없고 서버에도 이미 없을 수 있다. 이 탭 자신을 강제로 리로드하지는 않지만
-  // (다중 탭에서 동의 없는 리로드를 막는 것이 우선이다), 이 경우엔 새로고침이
-  // 실제로 문제를 해결하므로 그렇게 안내한다.
+  // 1) 청크를 못 받아온 경우. 이 탭이 강력 새로고침으로 열려 service worker 의
+  // 제어를 받지 않는 동안(uncontrolled) 새 배포가 나가면, 아직 열지 않은 도구의
+  // 청크는 해시가 바뀌어 서버에 이미 없다 — 그 탭은 SW 캐시도 못 쓰므로 네트워크로
+  // 나가려다 404 를 받는다(실제 배포를 흉내 내 재현했다). 이 탭 자신을 강제로
+  // 리로드하지는 않지만(작업 중이던 입력을 지키는 것이 우선이다), 이 경우엔
+  // 새로고침이 실제로 문제를 해결하므로 그렇게 안내한다.
   //
   // 함정: 청크를 **받아왔지만 모듈 평가 중에 던져도** 여기로 온다. 그러면 새로고침이
   // 소용없는 상황에 새로고침을 권하게 된다. 실제로 글자수 세기가 그랬다 —
@@ -124,5 +125,5 @@ async function render(): Promise<void> {
 window.addEventListener('hashchange', () => void render());
 applyTheme(prefs.getTheme());
 createPalette(tools);
-if (import.meta.env.PROD) setupUpdatePrompt();
+if (import.meta.env.PROD) setupServiceWorker();
 void render();
