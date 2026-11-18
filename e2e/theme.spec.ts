@@ -18,7 +18,7 @@ test.describe('저장된 테마가 없을 때 시스템 다크 모드의 첫 페
     // data-theme 이 없다는 것은 이 결과가 JS(applyTheme) 가 아니라 CSS 미디어
     // 쿼리만으로 결정됐다는 뜻이다.
     expect(style.dataTheme).toBeNull();
-    expect(style.bodyBg).toBe('rgb(17, 19, 23)');
+    expect(style.bodyBg).toBe('rgb(18, 20, 24)');
   });
 });
 
@@ -28,6 +28,61 @@ test.describe('저장된 테마가 없을 때 시스템 라이트 모드의 첫 
   test('JS 실행 전에는 배경이 라이트 팔레트로 그려진다', async ({ page }) => {
     await page.goto('/');
     const bodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(bodyBg).toBe('rgb(255, 255, 255)');
+    expect(bodyBg).toBe('rgb(251, 250, 247)');
   });
 });
+
+// 저장값과 시스템 설정이 반대일 때 저장값의 토큰 블록이 이겨야 한다. 시스템과 저장값이
+// 같으면 미디어 쿼리 블록이 대신 맞춰 줘서 [data-theme] 블록이 빠져도 통과한다.
+for (const [system, stored, bodyBg, railBg] of [
+  ['dark', 'light', 'rgb(251, 250, 247)', 'rgb(23, 33, 58)'],
+  ['light', 'dark', 'rgb(18, 20, 24)', 'rgb(12, 18, 32)'],
+] as const) {
+  test.describe(`시스템 ${system} 에 저장값 ${stored}`, () => {
+    test.use({ colorScheme: system });
+
+    test('저장값의 팔레트로 그려진다', async ({ page }) => {
+      await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), stored);
+      await page.goto('/#/json-format');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', stored);
+      await expect(page.locator('body')).toHaveCSS('background-color', bodyBg);
+      await expect(page.locator('#sidebar')).toHaveCSS('background-color', railBg);
+    });
+  });
+}
+
+// 사이드바 위 버튼은 공용 button:hover·:active 가 작업 영역의 밝은 배경을 덮어써
+// 밝은 글자가 묻힐 수 있다.
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme}: 사이드바 테마 버튼은 hover·누름 중에도 글자 대비가 4.5:1 이상이다`, async ({
+    page,
+  }) => {
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    await page.goto('/#/json-format');
+    const toggle = page.locator('.theme-toggle');
+    const ratio = () =>
+      toggle.evaluate((el) => {
+        const parse = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
+        const lum = (c: string) => {
+          const [r = 0, g = 0, b = 0] = parse(c);
+          const f = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const s = getComputedStyle(el);
+        const a = lum(s.color);
+        const b = lum(s.backgroundColor);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      });
+
+    await toggle.hover();
+    await page.waitForTimeout(150);
+    expect(await ratio(), 'hover').toBeGreaterThanOrEqual(4.5);
+    await page.mouse.down();
+    await page.waitForTimeout(150);
+    expect(await ratio(), 'active').toBeGreaterThanOrEqual(4.5);
+    await page.mouse.up();
+  });
+}
