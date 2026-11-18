@@ -432,8 +432,8 @@ test('모바일: 이미 보이는 메뉴를 누르면 메뉴 줄이 움직이지
   await page.goto('/#/json-format');
   await expect(page.locator('#tool-root')).not.toBeEmpty();
   const before = await page.locator('#sidebar').evaluate((el) => el.scrollLeft);
-  await page.locator('.sidebar-link[data-tool-id="json-diff"]').click();
-  await expect(page).toHaveURL(/#\/json-diff$/);
+  await page.locator('.sidebar-link[data-tool-id="sql-format"]').click();
+  await expect(page).toHaveURL(/#\/sql-format$/);
   expect(await page.locator('#sidebar').evaluate((el) => el.scrollLeft)).toBe(before);
 });
 
