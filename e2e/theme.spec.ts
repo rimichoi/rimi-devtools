@@ -86,3 +86,28 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.mouse.up();
   });
 }
+
+// 포커스 링은 작업 영역 기준 강조색이라, 배경이 반전된 사이드바 위에서는 따로 봐야 한다.
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme}: 사이드바의 포커스 링이 사이드바 배경 위에서 3:1 이상이다`, async ({ page }) => {
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    await page.goto('/#/json-format');
+    await page.locator('.sidebar-link').nth(1).focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    const ratio = await page.evaluate(() => {
+      const lum = (c: string) => {
+        const [r = 0, g = 0, b = 0] = (c.match(/[\d.]+/g) ?? []).map(Number);
+        const f = (v: number) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const ring = lum(getComputedStyle(document.activeElement!).outlineColor);
+      const rail = lum(getComputedStyle(document.querySelector('#sidebar')!).backgroundColor);
+      return (Math.max(ring, rail) + 0.05) / (Math.min(ring, rail) + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(3);
+  });
+}
