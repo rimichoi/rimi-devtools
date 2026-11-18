@@ -386,3 +386,30 @@ test('totp: 설정에 딸린 주의 줄이 설정 폭 안에 묶인다', async (
     `주의 줄 ${Math.round(box.width)}px, 설정 줄 ${Math.round(fields.width)}px`,
   ).toBeLessThanOrEqual(fields.width + 1);
 });
+
+test('모바일: 메뉴가 한 줄로 접혀 도구 제목이 첫 화면 위쪽에 있고, 끝까지 밀어 닿는다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/json-format');
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+
+  const top = await page.locator('#tool-header').evaluate((e) => e.getBoundingClientRect().top);
+  expect(top).toBeLessThan(80);
+
+  const shape = await page.evaluate(() => {
+    const links = [...document.querySelectorAll('.sidebar-link')];
+    const sb = document.querySelector('#sidebar')!;
+    return {
+      count: links.length,
+      rows: new Set(links.map((l) => Math.round(l.getBoundingClientRect().top))).size,
+      scrolls: sb.scrollWidth > sb.clientWidth,
+    };
+  });
+  expect(shape).toEqual({ count: 15, rows: 1, scrolls: true });
+
+  await page.locator('.sidebar-link', { hasText: 'EXIF 보기' }).click();
+  await expect(page).toHaveURL(/#\/exif$/);
+
+  const before = await page.locator('html').getAttribute('data-theme');
+  await page.locator('.theme-toggle').click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', before ?? '');
+});

@@ -540,3 +540,102 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(ratio).toBeGreaterThanOrEqual(3);
   });
 }
+
+async function fillTool(page: Page, id: string, values: string[], secret?: string): Promise<void> {
+  await page.goto(`/#/${id}`);
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+  if (secret) await page.locator('#tool-root input[type=password]').fill(secret);
+  const fields = page.locator('#tool-root textarea:not([readonly]), #tool-root input[type=text]');
+  for (const [i, v] of values.entries()) await fields.nth(i).fill(v);
+  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await page.waitForTimeout(200);
+}
+
+const leftWidths = (page: Page, sel: string) =>
+  page.locator(sel).evaluateAll((els) =>
+    els.filter((e) => e.textContent?.trim()).map((e) => getComputedStyle(e).borderLeftWidth),
+  );
+
+test('경고·에러·판정 블록과 활성 메뉴에 옆띠가 없다', async ({ page }) => {
+  await fillTool(page, 'totp', [], 'JBSWY3DPEHPK3PXP');
+  expect(await leftWidths(page, '#tool-root .io-error')).toEqual(['1px']);
+
+  const sample = sampleFor('totp');
+  if (sample.kind !== 'text') throw new Error('totp 샘플은 text 여야 합니다');
+  await fillTool(page, 'totp', [...sample.values, '000000'], sample.secret);
+  expect(await leftWidths(page, '#tool-root .totp-verdict')).toEqual(['1px']);
+
+  await fillTool(page, 'chmod', ['4755']);
+  expect(await leftWidths(page, '#tool-root .chmod-summary, #tool-root .chmod-warnings > *')).toEqual([
+    '1px',
+    '1px',
+  ]);
+
+  await fillTool(page, 'cron', ['0 0 09 08,13,21 * *']);
+  expect(await leftWidths(page, '#tool-root .cron-summary')).toEqual(['1px']);
+
+  const jwt = sampleFor('jwt');
+  if (jwt.kind !== 'text') throw new Error('jwt 샘플은 text 여야 합니다');
+  await fillTool(page, 'jwt', jwt.values, jwt.secret);
+  expect(await leftWidths(page, '#tool-root .jwt-verdict')).toEqual(['1px']);
+
+  // 카드 꼬리말 경고는 카드 테두리를 공유하므로 왼쪽 테두리가 원래 0 이다.
+  await fillTool(page, 'json-format', ['{"big":12345678901234567890}']);
+  expect(await leftWidths(page, '#tool-root .io-warn')).toEqual(['0px']);
+
+  const shadow = await page.locator('.sidebar-link.is-active').evaluate((e) => getComputedStyle(e).boxShadow);
+  expect(shadow).not.toContain('2px 0px 0px 0px');
+});
+
+test('결과 칸만 강조색 테두리이고 입력 칸·chmod 격자는 아니다', async ({ page }) => {
+  const accentOf = () =>
+    page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.color = 'var(--accent)';
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+  const borders = (sel: string) =>
+    page.locator(sel).evaluateAll((els) => els.map((e) => getComputedStyle(e).borderTopColor));
+
+  await fillTool(page, 'json-format', ['{"a":1}']);
+  const accent = await accentOf();
+  expect(await borders('#tool-root .io-pane > div:has(.io-output-head)')).toEqual([accent]);
+  expect(await borders('#tool-root .io-pane > div:not(:has(.io-output-head))')).not.toContain(accent);
+
+  await fillTool(page, 'text-count', ['안녕하세요​ 반갑습니다']);
+  const tc = await borders('#tool-root .result-list-wrap, #tool-root .text-count-highlight');
+  expect(tc.length).toBeGreaterThan(0);
+  expect(tc).toEqual(tc.map(() => accent));
+  expect(await borders('#tool-root .io-pane > div:not(:has(.io-output-head))')).not.toContain(accent);
+
+  await page.goto('/#/exif');
+  await driveTool(page, 'exif');
+  expect(await borders('#tool-root .panel')).toEqual([accent]);
+
+  await page.goto('/#/chmod');
+  expect(await borders('#tool-root .chmod-grid')).not.toContain(accent);
+});
+
+test('팔레트 선택 행은 줄 없이 배경만으로 다른 행과 구분된다', async ({ page }) => {
+  await page.goto('/#/json-format');
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(page.locator('.palette-row').first()).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  const rows = await page.evaluate(() => {
+    const cur = document.querySelector('.palette-row.is-cursor');
+    const other = [...document.querySelectorAll('.palette-row')].find((r) => r !== cur);
+    if (!cur || !other) return null;
+    return {
+      cursor: getComputedStyle(cur).backgroundColor,
+      shadow: getComputedStyle(cur).boxShadow,
+      other: getComputedStyle(other).backgroundColor,
+    };
+  });
+  expect(rows).not.toBeNull();
+  expect(rows!.cursor).not.toBe(rows!.other);
+  expect(rows!.shadow).toBe('none');
+});

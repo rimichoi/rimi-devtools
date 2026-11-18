@@ -376,11 +376,10 @@ body.no-scroll {
 }
 
 /* 활성 항목은 강조색 덩어리로 채우지 않는다 — 목록 하나에 색 블록이 하나 있으면
- * 그 자체가 페이지에서 가장 무거운 요소가 된다. 옅은 강조 배경 + 왼쪽 2px 막대로
- * 만든다. 막대는 요소를 추가하지 않고 inset box-shadow 로 그린다. */
+ * 그 자체가 페이지에서 가장 무거운 요소가 된다. */
 .sidebar-link.is-active {
   background: var(--rail-2);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--rail-muted);
   color: var(--on-rail-strong);
   font-weight: 600;
 }
@@ -793,17 +792,12 @@ input[type='checkbox']:checked::before {
 
 /* ==========================================================================
  * 알림 (오류 / 주의)
- *
- * 예전에는 색만 다른 맨 텍스트였다. JSON 정밀도 경고는 이 제품이 하는 일 중
- * 가장 값진 것 하나인데 딸려붙은 군더더기처럼 보였다. 배경 + 왼쪽 4px 띠 + 여백을
- * 갖춘 구조화된 블록으로 만든다.
  * ========================================================================== */
 
 .io-error,
 .io-warn {
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
-  border-left-width: 4px;
   border-radius: var(--r-md);
   font-size: var(--text-base);
   line-height: 1.55;
@@ -864,6 +858,17 @@ input[type='checkbox']:checked::before {
 .panel > .io-output-head,
 .result-list-wrap > .io-output-head {
   border-bottom: 1px solid var(--border);
+}
+
+/* 결과 칸은 테두리만 강조색이다. chmod 격자는 같은 머리 스트립을 쓰지만 입력이다. */
+.io-pane > div:has(.io-output-head),
+.result-list-wrap,
+.panel:not(.chmod-grid) {
+  border-color: var(--accent);
+}
+
+:is(.io-pane > div, .result-list-wrap, .panel:not(.chmod-grid)) > .io-output-head {
+  background: var(--accent-soft);
 }
 
 .result-list {
@@ -1400,7 +1405,6 @@ input[type='checkbox']:checked::before {
 /* 사이드바 활성 항목과 같은 언어를 쓴다 — 옅은 강조 배경 + 왼쪽 막대 */
 .palette-row.is-cursor {
   background: var(--accent-soft);
-  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--accent-fg);
   font-weight: 600;
 }
@@ -1465,19 +1469,20 @@ input[type='checkbox']:checked::before {
   }
 
   /*
-   * 사이드바를 상단 가로 내비게이션으로 접는다. nav 에 display:contents 를 주면
-   * 카테고리 제목과 링크들이 같은 wrap flex 흐름에 섞여, 제목이 그룹 구분자처럼
-   * 읽히는 한 줄짜리 내비게이션이 된다(마크업 변경 없음).
+   * 사이드바를 한 줄 가로 스크롤 내비게이션으로 접는다. nav 에 display:contents 를
+   * 주면 링크들이 사이드바의 flex 흐름에 바로 놓인다(마크업 변경 없음). 여러 줄로
+   * 감기게 두면 15개 링크가 첫 화면 위를 다 차지한다.
    */
   #sidebar {
     position: static;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: var(--sp-1) 6px;
+    gap: var(--sp-1);
     width: auto;
     height: auto;
-    padding: var(--sp-3) var(--sp-4);
+    padding: var(--sp-2) var(--sp-3);
+    overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
@@ -1487,24 +1492,30 @@ input[type='checkbox']:checked::before {
   }
 
   .sidebar-title {
-    flex: 1 0 100%;
-    margin: 0 0 var(--sp-2);
+    flex: none;
+    margin: 0 var(--sp-2) 0 0;
     padding: 0;
   }
 
+  .sidebar-title .kbd,
   .sidebar-heading {
-    margin: 0 var(--sp-1);
-    padding: 0;
+    display: none;
+  }
+
+  .sidebar-link {
+    flex: none;
+    white-space: nowrap;
   }
 
   .sidebar-foot {
-    flex: 1 0 100%;
-    margin-top: var(--sp-2);
+    flex: none;
+    margin: 0 0 0 var(--sp-2);
     padding-top: 0;
   }
 
   .theme-toggle {
     width: auto;
+    white-space: nowrap;
   }
 
   #tool-header {
@@ -1574,7 +1585,6 @@ input[type='checkbox']:checked::before {
 .jwt-verdict {
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
-  border-left-width: 4px;
   border-radius: var(--r-md);
   font-size: var(--text-base);
   line-height: 1.55;
@@ -1647,9 +1657,7 @@ input[type='checkbox']:checked::before {
 }
 .cron-summary {
   padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-left-color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--r-md);
   background: var(--accent-soft);
   color: var(--accent-fg);
@@ -1689,9 +1697,7 @@ input[type='checkbox']:checked::before {
  */
 .chmod-summary {
   padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-left-color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--r-md);
   background: var(--accent-soft);
   color: var(--accent-fg);
@@ -1912,7 +1918,6 @@ input[type='checkbox']:checked::before {
 .totp-verdict {
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
-  border-left-width: 4px;
   border-radius: var(--r-md);
   font-size: var(--text-base);
   line-height: 1.55;
