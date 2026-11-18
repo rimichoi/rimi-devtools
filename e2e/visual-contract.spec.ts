@@ -619,7 +619,7 @@ test('결과 칸만 강조색 테두리이고 입력 칸·chmod 격자는 아니
   expect(await borders('#tool-root .chmod-grid')).not.toContain(accent);
 });
 
-test('팔레트 선택 행은 줄 없이 배경만으로 다른 행과 구분된다', async ({ page }) => {
+test('팔레트 선택 행은 옆띠 없이 링으로 다른 행과 구분된다', async ({ page }) => {
   await page.goto('/#/json-format');
   await expect(page.locator('#tool-root')).not.toBeEmpty();
   await page.keyboard.press('ControlOrMeta+k');
@@ -637,5 +637,49 @@ test('팔레트 선택 행은 줄 없이 배경만으로 다른 행과 구분된
   });
   expect(rows).not.toBeNull();
   expect(rows!.cursor).not.toBe(rows!.other);
-  expect(rows!.shadow).toBe('none');
+  expect(rows!.shadow).not.toContain('2px 0px 0px 0px');
+  // 배경 차이는 1.1:1 안팎이라 표식이 될 수 없다 — 키보드 위치는 링이 알린다.
+  const ring = rows!.shadow.match(/rgba?\([^)]*\)/)?.[0] ?? '';
+  expect(ring, `선택 행에 링이 없다: ${rows!.shadow}`).not.toBe('');
+  expect(contrastOf(ring, rows!.cursor), `링 ${ring} / 행 ${rows!.cursor}`).toBeGreaterThanOrEqual(3);
 });
+
+function contrastOf(a: string, b: string): number {
+  const lum = (c: string) => {
+    const [r = 0, g = 0, bl = 0] = (c.match(/[\d.]+/g) ?? []).map(Number);
+    const f = (v: number) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl);
+  };
+  const x = lum(a);
+  const y = lum(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme}: 체크 안 된 체크박스 경계가 놓인 바탕 위에서 3:1 이상이다`, async ({ page }) => {
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    for (const [id, sel] of [
+      ['chmod', '#tool-root .chmod-grid input[type=checkbox]:not(:checked)'],
+      ['json-format', '#tool-root input[type=checkbox]:not(:checked)'],
+    ] as const) {
+      await page.goto(`/#/${id}`);
+      const box = page.locator(sel).first();
+      await expect(box).toBeVisible();
+      const [border, around] = await box.evaluate((el) => {
+        let bg = 'rgb(255, 255, 255)';
+        for (let e = el.parentElement; e; e = e.parentElement) {
+          const c = getComputedStyle(e).backgroundColor;
+          if (c !== 'rgba(0, 0, 0, 0)') {
+            bg = c;
+            break;
+          }
+        }
+        return [getComputedStyle(el).borderTopColor, bg];
+      });
+      expect(contrastOf(border, around), `${id}: ${border} / ${around}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+}

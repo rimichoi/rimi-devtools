@@ -413,3 +413,16 @@ test('모바일: 메뉴가 한 줄로 접혀 도구 제목이 첫 화면 위쪽�
   await page.locator('.theme-toggle').click();
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', before ?? '');
 });
+
+test('모바일: 뒤쪽 도구로 바로 들어와도 활성 메뉴가 메뉴 줄 안에 보인다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/exif');
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+  const pos = await page.evaluate(() => {
+    const a = document.querySelector('.sidebar-link.is-active')!.getBoundingClientRect();
+    const sb = document.querySelector('#sidebar')!.getBoundingClientRect();
+    return { left: a.left, right: a.right, sbLeft: sb.left, sbRight: sb.right };
+  });
+  expect(pos.left).toBeGreaterThanOrEqual(pos.sbLeft);
+  expect(pos.right).toBeLessThanOrEqual(pos.sbRight);
+});

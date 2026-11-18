@@ -104,10 +104,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
         };
         return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
       };
-      const ring = lum(getComputedStyle(document.activeElement!).outlineColor);
+      const s = getComputedStyle(document.activeElement!);
+      const ring = lum(s.outlineColor);
       const rail = lum(getComputedStyle(document.querySelector('#sidebar')!).backgroundColor);
-      return (Math.max(ring, rail) + 0.05) / (Math.min(ring, rail) + 0.05);
+      return {
+        style: s.outlineStyle,
+        width: parseFloat(s.outlineWidth),
+        value: (Math.max(ring, rail) + 0.05) / (Math.min(ring, rail) + 0.05),
+      };
     });
-    expect(ratio).toBeGreaterThanOrEqual(3);
+    // outline 이 꺼져도 outline-color 는 글자색으로 계산돼 대비만으로는 통과한다
+    expect(ratio.style).not.toBe('none');
+    expect(ratio.width).toBeGreaterThanOrEqual(2);
+    expect(ratio.value).toBeGreaterThanOrEqual(3);
   });
 }
+
+test('다크: 사이드바와 작업 영역 사이에 경계선이 보인다', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('rdt.theme', JSON.stringify('dark')));
+  await page.goto('/#/json-format');
+  const side = await page.locator('#sidebar').evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { border: s.borderRightColor, bg: s.backgroundColor, width: s.borderRightWidth };
+  });
+  expect(side.width).toBe('1px');
+  expect(side.border).not.toBe(side.bg);
+});
