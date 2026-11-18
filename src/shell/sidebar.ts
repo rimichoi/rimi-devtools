@@ -64,9 +64,7 @@ export function renderSidebar(
   container.append(foot);
 
   // 좁은 화면의 한 줄 메뉴에서 뒤쪽 도구로 바로 들어오면 활성 링크가 화면 밖에 있다
-  const active = container.querySelector<HTMLElement>('.sidebar-link.is-active');
-  if (active && container.scrollWidth > container.clientWidth) {
-    const offset = active.getBoundingClientRect().left - container.getBoundingClientRect().left;
-    container.scrollLeft += offset - (container.clientWidth - active.offsetWidth) / 2;
-  }
+  container
+    .querySelector('.sidebar-link.is-active')
+    ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }

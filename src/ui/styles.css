@@ -44,6 +44,7 @@
 
   /* --- 색: 사이드바(배경이 반전되는 영역) */
   --rail: #17213a;
+  --rail-edge: var(--rail);
   --rail-2: #212d4a;
   --rail-fg: #e8ecf5;
   --rail-muted: #a3adc2;
@@ -126,6 +127,7 @@
     --warn-soft: #2a2211;
 
     --rail: #0c1220;
+    --rail-edge: var(--border);
     --rail-2: #18213a;
     --rail-fg: #e8ecf5;
     --rail-muted: #97a2b8;
@@ -166,6 +168,7 @@
   --warn-soft: #2a2211;
 
   --rail: #0c1220;
+  --rail-edge: var(--border);
   --rail-2: #18213a;
   --rail-fg: #e8ecf5;
   --rail-muted: #97a2b8;
@@ -259,7 +262,7 @@ body.no-scroll {
   padding: var(--sp-4) var(--sp-3);
   overflow-y: auto;
   background: var(--rail);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--rail-edge);
 }
 
 #content {
@@ -1403,7 +1406,7 @@ input[type='checkbox']:checked::before {
   color: var(--fg);
 }
 
-/* 배경 차이는 1.1:1 안팎이라 키보드 위치는 링이 알린다 */
+/* 배경 차이만으로는 선택 행이 안 보여 키보드 위치는 링이 알린다 */
 .palette-row.is-cursor {
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent);

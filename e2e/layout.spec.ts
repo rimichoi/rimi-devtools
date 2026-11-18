@@ -426,3 +426,13 @@ test('모바일: 뒤쪽 도구로 바로 들어와도 활성 메뉴가 메뉴 �
   expect(pos.left).toBeGreaterThanOrEqual(pos.sbLeft);
   expect(pos.right).toBeLessThanOrEqual(pos.sbRight);
 });
+
+test('모바일: 이미 보이는 메뉴를 누르면 메뉴 줄이 움직이지 않는다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/json-format');
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+  const before = await page.locator('#sidebar').evaluate((el) => el.scrollLeft);
+  await page.locator('.sidebar-link[data-tool-id="json-diff"]').click();
+  await expect(page).toHaveURL(/#\/json-diff$/);
+  expect(await page.locator('#sidebar').evaluate((el) => el.scrollLeft)).toBe(before);
+});

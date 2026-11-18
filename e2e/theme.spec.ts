@@ -120,13 +120,23 @@ for (const colorScheme of ['light', 'dark'] as const) {
   });
 }
 
-test('다크: 사이드바와 작업 영역 사이에 경계선이 보인다', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('rdt.theme', JSON.stringify('dark')));
-  await page.goto('/#/json-format');
-  const side = await page.locator('#sidebar').evaluate((el) => {
-    const s = getComputedStyle(el);
-    return { border: s.borderRightColor, bg: s.backgroundColor, width: s.borderRightWidth };
+for (const [colorScheme, edge] of [
+  ['dark', '--border'],
+  ['light', '--rail'],
+] as const) {
+  test(`${colorScheme}: 사이드바 오른쪽 선은 ${edge} 색이다`, async ({ page }) => {
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    await page.goto('/#/json-format');
+    const side = await page.locator('#sidebar').evaluate((el, token) => {
+      const probe = document.createElement('i');
+      probe.style.color = `var(${token})`;
+      el.append(probe);
+      const want = getComputedStyle(probe).color;
+      probe.remove();
+      const s = getComputedStyle(el);
+      return { border: s.borderRightColor, want, width: s.borderRightWidth };
+    }, edge);
+    expect(side.width).toBe('1px');
+    expect(side.border).toBe(side.want);
   });
-  expect(side.width).toBe('1px');
-  expect(side.border).not.toBe(side.bg);
-});
+}

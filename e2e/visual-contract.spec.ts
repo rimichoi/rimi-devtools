@@ -629,7 +629,13 @@ test('팔레트 선택 행은 옆띠 없이 링으로 다른 행과 구분된다
     const cur = document.querySelector('.palette-row.is-cursor');
     const other = [...document.querySelectorAll('.palette-row')].find((r) => r !== cur);
     if (!cur || !other) return null;
+    const probe = document.createElement('i');
+    probe.style.color = 'var(--accent)';
+    cur.append(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
     return {
+      accent,
       cursor: getComputedStyle(cur).backgroundColor,
       shadow: getComputedStyle(cur).boxShadow,
       other: getComputedStyle(other).backgroundColor,
@@ -637,11 +643,8 @@ test('팔레트 선택 행은 옆띠 없이 링으로 다른 행과 구분된다
   });
   expect(rows).not.toBeNull();
   expect(rows!.cursor).not.toBe(rows!.other);
-  expect(rows!.shadow).not.toContain('2px 0px 0px 0px');
-  // 배경 차이는 1.1:1 안팎이라 표식이 될 수 없다 — 키보드 위치는 링이 알린다.
-  const ring = rows!.shadow.match(/rgba?\([^)]*\)/)?.[0] ?? '';
-  expect(ring, `선택 행에 링이 없다: ${rows!.shadow}`).not.toBe('');
-  expect(contrastOf(ring, rows!.cursor), `링 ${ring} / 행 ${rows!.cursor}`).toBeGreaterThanOrEqual(3);
+  expect(rows!.shadow).toBe(`${rows!.accent} 0px 0px 0px 1px inset`);
+  expect(contrastOf(rows!.accent, rows!.cursor), `링 ${rows!.accent} / 행 ${rows!.cursor}`).toBeGreaterThanOrEqual(3);
 });
 
 function contrastOf(a: string, b: string): number {
