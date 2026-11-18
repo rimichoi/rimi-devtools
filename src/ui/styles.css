@@ -1489,7 +1489,7 @@ input[type='checkbox']:checked::before {
     padding: var(--sp-2) var(--sp-3);
     overflow-x: auto;
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--rail-edge);
   }
 
   #sidebar nav {

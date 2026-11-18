@@ -139,4 +139,21 @@ for (const [colorScheme, edge] of [
     expect(side.width).toBe('1px');
     expect(side.border).toBe(side.want);
   });
+
+  test(`${colorScheme}: 모바일 메뉴 줄 아래 선은 ${edge} 색이다`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    await page.goto('/#/json-format');
+    const side = await page.locator('#sidebar').evaluate((el, token) => {
+      const probe = document.createElement('i');
+      probe.style.color = `var(${token})`;
+      el.append(probe);
+      const want = getComputedStyle(probe).color;
+      probe.remove();
+      const s = getComputedStyle(el);
+      return { border: s.borderBottomColor, want, width: s.borderBottomWidth };
+    }, edge);
+    expect(side.width).toBe('1px');
+    expect(side.border).toBe(side.want);
+  });
 }
