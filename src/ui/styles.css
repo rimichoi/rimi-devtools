@@ -1488,6 +1488,7 @@ input[type='checkbox']:checked::before {
     height: auto;
     padding: var(--sp-2) var(--sp-3);
     overflow-x: auto;
+    scroll-padding-inline: var(--sp-6);
     border-right: 0;
     border-bottom: 1px solid var(--rail-edge);
   }

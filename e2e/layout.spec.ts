@@ -436,3 +436,17 @@ test('모바일: 이미 보이는 메뉴를 누르면 메뉴 줄이 움직이지
   await expect(page).toHaveURL(/#\/json-diff$/);
   expect(await page.locator('#sidebar').evaluate((el) => el.scrollLeft)).toBe(before);
 });
+
+test('모바일: 바로 들어온 활성 메뉴가 줄 끝에 붙지 않아 뒤 항목이 보인다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/exif');
+  await expect(page.locator('#tool-root')).not.toBeEmpty();
+  const pos = await page.evaluate(() => {
+    const a = document.querySelector('.sidebar-link.is-active')!;
+    const items = [...document.querySelectorAll('#sidebar .sidebar-link, #sidebar .theme-toggle')];
+    const next = items[items.indexOf(a) + 1]!.getBoundingClientRect();
+    const sb = document.querySelector('#sidebar')!.getBoundingClientRect();
+    return { nextLeft: next.left, sbRight: sb.right };
+  });
+  expect(pos.nextLeft).toBeLessThan(pos.sbRight);
+});
