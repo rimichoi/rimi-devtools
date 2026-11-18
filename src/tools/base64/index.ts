@@ -34,7 +34,7 @@ const mod: ToolModule = {
       transform: (text) => asOutput(encodeBase64(text)),
     });
 
-    const divider = document.createElement('h3');
+    const divider = document.createElement('h2');
     divider.className = 'section-heading';
     divider.textContent = 'Base64 → 원문';
     root.append(divider);

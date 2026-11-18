@@ -71,7 +71,7 @@ const mod: ToolModule = {
     root.append(masterBox, algorithm);
 
     // --- 복호화 세트 --------------------------------------------------------
-    const decryptHeading = document.createElement('h3');
+    const decryptHeading = document.createElement('h2');
     decryptHeading.className = 'section-heading';
     decryptHeading.textContent = '복호화';
     root.append(decryptHeading);
@@ -96,7 +96,7 @@ const mod: ToolModule = {
     });
 
     // --- 암호화 세트 --------------------------------------------------------
-    const encryptHeading = document.createElement('h3');
+    const encryptHeading = document.createElement('h2');
     encryptHeading.className = 'section-heading';
     encryptHeading.textContent = '암호화';
     root.append(encryptHeading);

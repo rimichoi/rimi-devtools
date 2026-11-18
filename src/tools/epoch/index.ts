@@ -79,7 +79,7 @@ const mod: ToolModule = {
     });
     unitBar.append(nowButton);
 
-    const divider = document.createElement('h3');
+    const divider = document.createElement('h2');
     divider.textContent = '날짜 → 타임스탬프';
     divider.className = 'section-heading';
     root.append(divider);

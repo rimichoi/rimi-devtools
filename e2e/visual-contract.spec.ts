@@ -482,3 +482,61 @@ test('좁은 화면에서 가로 스크롤이 생기지 않는다', async ({ pag
   await expectNoHorizontalScroll(page, 'exif/메타데이터 표');
   await expectTextNotClipped(page.locator('#tool-root .exif-table'), 'EXIF 메타데이터 표');
 });
+
+test('모든 도구에서 보이는 글자가 11.5px 이상이다', async ({ page }) => {
+  const failures: string[] = [];
+  for (const id of TOOL_IDS) {
+    await page.goto(`/#/${id}`);
+    await expect(page.locator('#tool-root')).not.toBeEmpty();
+    await driveTool(page, id);
+    const small = await page.evaluate(() =>
+      [...document.querySelectorAll('body *')]
+        .filter(
+          (el) =>
+            [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) &&
+            el.getBoundingClientRect().width > 0,
+        )
+        .map((el) => ({ el: el.className || el.tagName, size: parseFloat(getComputedStyle(el).fontSize) }))
+        .filter((r) => r.size < 11.5),
+    );
+    for (const r of small) failures.push(`${id}: ${r.el} ${r.size}px`);
+  }
+  expect(failures).toEqual([]);
+});
+
+test('구분 제목은 h2 이고 라벨에 대문자 변환이 없다', async ({ page }) => {
+  for (const id of ['base64', 'epoch', 'url-encode', 'jasypt']) {
+    await page.goto(`/#/${id}`);
+    const headings = page.locator('#tool-root .section-heading');
+    await expect(headings.first()).toBeVisible();
+    const tags = await headings.evaluateAll((els) => els.map((e) => e.tagName));
+    expect(tags, id).toEqual(tags.map(() => 'H2'));
+    await expect(headings.first()).toHaveCSS('text-transform', 'none');
+  }
+  await page.goto('/#/json-format');
+  await expect(page.locator('.sidebar-heading').first()).toHaveCSS('text-transform', 'none');
+  await expect(page.locator('#tool-root .io-pane label').first()).toHaveCSS('text-transform', 'none');
+});
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme}: 체크 표시가 체크박스 바탕 위에서 3:1 이상이다`, async ({ page }) => {
+    await page.addInitScript((v) => localStorage.setItem('rdt.theme', JSON.stringify(v)), colorScheme);
+    await page.goto('/#/chmod');
+    await page.locator('#tool-root input[type=checkbox]:not(:checked)').first().check();
+    await page.waitForTimeout(150);
+    const ratio = await page.locator('#tool-root input[type=checkbox]:checked').first().evaluate((el) => {
+      const lum = (c: string) => {
+        const [r = 0, g = 0, b = 0] = (c.match(/[\d.]+/g) ?? []).map(Number);
+        const f = (v: number) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const a = lum(getComputedStyle(el, '::before').backgroundColor);
+      const b = lum(getComputedStyle(el).backgroundColor);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(3);
+  });
+}

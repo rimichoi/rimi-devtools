@@ -62,11 +62,11 @@
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'D2Coding',
     'Liberation Mono', monospace;
 
-  --text-xs: 10.5px;
-  --text-sm: 12px;
-  --text-base: 13px;
+  --text-xs: 12px;
+  --text-sm: 12.5px;
+  --text-base: 13.5px;
   --text-md: 14px;
-  --text-lg: 16px;
+  --text-lg: 19px;
   --text-xl: 21px;
   --leading-code: 1.65;
 
@@ -281,7 +281,7 @@ body.no-scroll {
 .tool-title {
   margin: 0;
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--fg);
 }
@@ -358,8 +358,6 @@ body.no-scroll {
   color: var(--rail-muted);
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .sidebar-link {
@@ -717,11 +715,10 @@ input[type='checkbox']:checked::before {
   padding: 0 var(--sp-3);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: var(--text-xs);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 /* 복사 버튼을 오른쪽 끝에 붙이는 머리 스트립은 오른쪽 여백을 좁게 준다. */
@@ -744,8 +741,6 @@ input[type='checkbox']:checked::before {
   background: transparent;
   color: var(--muted);
   font-size: var(--text-sm);
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .io-output-head button:hover {
@@ -1015,8 +1010,6 @@ input[type='checkbox']:checked::before {
    * 사이드바 카테고리)과 달리 여기는 실제로 읽는 항목명이므로 한 단 올린다. */
   font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 .form-grid input {
@@ -1036,8 +1029,6 @@ input[type='checkbox']:checked::before {
   font-family: var(--font-ui);
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 .form-result {
@@ -1091,8 +1082,6 @@ input[type='checkbox']:checked::before {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 .jasypt-master-row {
@@ -1191,11 +1180,9 @@ input[type='checkbox']:checked::before {
   margin: var(--sp-3) 0 0;
   padding-top: var(--sp-5);
   border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: var(--text-xs);
+  color: var(--fg);
+  font-size: var(--text-md);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* ==========================================================================

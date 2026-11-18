@@ -47,7 +47,7 @@ const mod: ToolModule = {
       transform: (text) => asOutput(encodeUrl(text, mode.value as UrlMode)),
     });
 
-    const divider = document.createElement('h3');
+    const divider = document.createElement('h2');
     divider.className = 'section-heading';
     divider.textContent = '인코딩된 값 → 원문';
     root.append(divider);
